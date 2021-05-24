@@ -1,14 +1,22 @@
-#include "rpc/server.h"
+#ifdef _WIN32
 #include <Windows.h>
 #include "Shlwapi.h"
+#pragma comment(lib, "shlwapi.lib")
+#else
+#include <dlfcn.h>
+#define MAX_PATH 2048
+#endif
+
+
 #include <time.h>
 #include <list>
 #include <iostream>
-#include "remoting.h"
 
+#include "rpc/server.h"
+
+#include "remoting.h"
 #include "fmi2Functions.h"
 
-#pragma comment(lib, "shlwapi.lib") 
 
 using namespace std;
 
@@ -38,6 +46,7 @@ static void resetExitTimer() {
 }
 
 
+#ifdef _WIN32
 DWORD WINAPI MyThreadFunction(LPVOID lpParam) {
 
 	while (s_server) {
@@ -56,19 +65,23 @@ DWORD WINAPI MyThreadFunction(LPVOID lpParam) {
 
 	return 0;
 }
+#endif
 
 class FMU {
 
 private:
 
+#ifdef _WIN32
 	HMODULE libraryHandle;
-
+#else
+    void *libraryHandle;
+#endif
 	template<typename T> T *get(const char *functionName) {
 
 # ifdef _WIN32
 		auto *fp = GetProcAddress(libraryHandle, functionName);
 # else
-		auto *fp = dlsym(m_libraryHandle, functionName);
+		auto *fp = dlsym(libraryHandle, functionName);
 # endif
 
 		return reinterpret_cast<T *>(fp);
@@ -118,10 +131,15 @@ public:
 		/* set the current directory to binaries/win32 */
 		char libraryDir[MAX_PATH];
 		strcpy(libraryDir, libraryPath.c_str());
+
+#ifdef _WIN32
 		PathRemoveFileSpec(libraryDir);
 		SetCurrentDirectory(libraryDir);
 
 		libraryHandle = LoadLibraryA(libraryPath.c_str());
+#else
+        libraryHandle = dlopen(libraryPath.c_str(), RTLD_LAZY);
+#endif
 
 		m_callbacks.logger = logger;
 		m_callbacks.allocateMemory = allocateMemory;
@@ -236,7 +254,10 @@ public:
 		srv.bind("fmi2Instantiate",      [this](string const& instanceName, int fmuType, string const& fmuGUID, string const& fmuResourceLocation, int visible, int loggingOn) {
 			resetExitTimer();
 			m_instance = m_fmi2Instantiate(instanceName.c_str(), static_cast<fmi2Type>(fmuType), fmuGUID.c_str(), fmuResourceLocation.c_str(), &m_callbacks, visible, loggingOn);
-			return createReturnValue(reinterpret_cast<int>(m_instance));
+			
+            long int_value = reinterpret_cast<long>(m_instance);
+            
+            return createReturnValue(static_cast<int>(int_value));
 		});
 
 		srv.bind("fmi2FreeInstance", [this]() { 

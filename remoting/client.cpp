@@ -1,13 +1,15 @@
-#include "rpc/client.h"
-#include <iostream>
-#include <vector>
+#ifdef _WIN32
 #include "Windows.h"
 #include "Shlwapi.h"
-#include "remoting.h"
-
-#include "fmi2Functions.h"
-
 #pragma comment(lib, "shlwapi.lib") 
+#endif
+
+#include <iostream>
+#include <vector>
+#include "rpc/client.h"
+
+#include "remoting.h"
+#include "fmi2Functions.h"
 
 
 using namespace std;

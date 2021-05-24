@@ -42,9 +42,16 @@ target_include_directories(server PUBLIC
   "${RPCLIB}/include"
 )
 
-target_link_libraries(server
-  "${RPCLIB}/lib/rpc.lib"
-)
+if (WIN32)
+    target_link_libraries(server
+      "${RPCLIB}/lib/rpc.lib"
+    )
+else ()
+    target_link_libraries(server
+      "${RPCLIB}/lib/librpc.a"
+      ${CMAKE_DL_LIBS}
+    )
+endif ()
 
 add_custom_command(TARGET server POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
   "$<TARGET_FILE:server>"
@@ -77,4 +84,8 @@ add_executable(client_test
 
 target_include_directories(client_test PUBLIC
   ../fmpy/c-code
+)
+
+target_link_libraries(client_test
+  ${CMAKE_DL_LIBS}
 )

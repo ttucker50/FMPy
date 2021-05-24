@@ -1,22 +1,27 @@
-#include <iostream>
+#ifdef _WIN32
 #include <Windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
-extern "C" {
+#include <iostream>
+
 #include "fmi2Functions.h"
-}
+
 
 using namespace std;
 
+#ifdef _WIN32
 template<typename T> T *get(HMODULE libraryHandle, const char *functionName) {
-
-# ifdef _WIN32
-	auto *fp = GetProcAddress(libraryHandle, functionName);
-# else
-	auto *fp = dlsym(m_libraryHandle, functionName);
-# endif
-
+    auto *fp = GetProcAddress(libraryHandle, functionName);
 	return reinterpret_cast<T *>(fp);
 }
+#else
+template<typename T> T *get(void *libraryHandle, const char *functionName) {
+    auto *fp = dlsym(libraryHandle, functionName);
+    return reinterpret_cast<T *>(fp);
+}
+# endif
 
 static void functionInThisDll() {}
 
@@ -79,8 +84,11 @@ int main()
 
 	cout << "FMI Version: " << version << endl;
 
+#ifdef _WIN32
 	auto b = FreeLibrary(l);
-	
+#else
+    auto b = dlclose(l);
+#endif
 
 
 	return 0;
