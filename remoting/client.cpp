@@ -5,9 +5,10 @@
 #include "Shlwapi.h"
 #include "remoting.h"
 
-extern "C" {
 #include "fmi2Functions.h"
-}
+
+#pragma comment(lib, "shlwapi.lib") 
+
 
 using namespace std;
 

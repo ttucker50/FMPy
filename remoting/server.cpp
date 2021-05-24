@@ -6,9 +6,9 @@
 #include <iostream>
 #include "remoting.h"
 
-extern "C" {
 #include "fmi2Functions.h"
-}
+
+#pragma comment(lib, "shlwapi.lib") 
 
 using namespace std;
 
@@ -211,6 +211,10 @@ public:
 		srv.bind("echo", [](string const& s) {
 			return s;
 		});
+
+        srv.bind("sum", [this](double a, double b) {
+            return a + b;
+        });
 
 		/* Inquire version numbers of header files and setting logging status */
 		srv.bind("fmi2GetTypesPlatform", [this]() { 
@@ -558,15 +562,15 @@ int main(int argc, char *argv[]) {
 	s_server = &fmu.srv;
 	time(&s_lastActive);
 
-	DWORD dwThreadIdArray;
+	//DWORD dwThreadIdArray;
 
-	auto hThreadArray = CreateThread(
-		NULL,                   // default security attributes
-		0,                      // use default stack size  
-		MyThreadFunction,       // thread function name
-		NULL,                   // argument to thread function 
-		0,                      // use default creation flags 
-		&dwThreadIdArray);      // returns the thread identifier
+	//auto hThreadArray = CreateThread(
+	//	NULL,                   // default security attributes
+	//	0,                      // use default stack size  
+	//	MyThreadFunction,       // thread function name
+	//	NULL,                   // argument to thread function 
+	//	0,                      // use default creation flags 
+	//	&dwThreadIdArray);      // returns the thread identifier
 
 	fmu.srv.run();
 

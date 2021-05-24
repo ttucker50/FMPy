@@ -5,6 +5,8 @@ import shutil
 from subprocess import check_call
 
 
+config = 'Debug'
+
 # clean up
 for p in ['rpclib-2.2.1', 'remoting/client/build', 'remoting/server/build']:
     if os.path.exists(p):
@@ -34,7 +36,7 @@ check_call([
     '-B', 'rpclib-2.2.1/win32'
 ])
 
-check_call(['cmake', '--build', 'rpclib-2.2.1/win32', '--target', 'install', '--config', 'Release'])
+check_call(['cmake', '--build', 'rpclib-2.2.1/win32', '--target', 'install', '--config', config])
 
 # build RPCLIB for win64
 check_call([
@@ -46,34 +48,26 @@ check_call([
     '-B', 'rpclib-2.2.1/win64'
 ])
 
-check_call(['cmake', '--build', 'rpclib-2.2.1/win64', '--target', 'install', '--config', 'Release'])
+check_call(['cmake', '--build', 'rpclib-2.2.1/win64', '--target', 'install', '--config', config])
 
-print('####' + str([
-    'cmake',
-    '-DRPCLIB=' + os.path.abspath('rpclib-2.2.1/win32/install').replace('\\', '/'),
-    '-G', 'Visual Studio 15 2017',
-    '-S', 'remoting/server',
-    '-B', 'remoting/server/build'
-]))
+# # build server.exe
+# check_call([
+#     'cmake',
+#     '-DRPCLIB=' + os.path.abspath('rpclib-2.2.1/win32/install').replace('\\', '/'),
+#     '-G', 'Visual Studio 15 2017',
+#     '-S', 'remoting/server',
+#     '-B', 'remoting/server/build'
+# ])
+#
+# check_call(['cmake', '--build', 'remoting/server/build', '--config', config])
 
-# build server.exe
-check_call([
-    'cmake',
-    '-DRPCLIB=' + os.path.abspath('rpclib-2.2.1/win32/install').replace('\\', '/'),
-    '-G', 'Visual Studio 15 2017',
-    '-S', 'remoting/server',
-    '-B', 'remoting/server/build'
-])
-
-check_call(['cmake', '--build', 'remoting/server/build', '--config', 'Release'])
-
-# build client.exe
-check_call([
-    'cmake',
-    '-DRPCLIB=' + os.path.abspath('rpclib-2.2.1/win64/install').replace('\\', '/'),
-    '-G', 'Visual Studio 15 2017 Win64',
-    '-S', 'remoting/client',
-    '-B', 'remoting/client/build'
-])
-
-check_call(['cmake', '--build', 'remoting/client/build', '--config', 'Release'])
+# # build client.exe
+# check_call([
+#     'cmake',
+#     '-DRPCLIB=' + os.path.abspath('rpclib-2.2.1/win64/install').replace('\\', '/'),
+#     '-G', 'Visual Studio 15 2017 Win64',
+#     '-S', 'remoting/client',
+#     '-B', 'remoting/client/build'
+# ])
+#
+# check_call(['cmake', '--build', 'remoting/client/build', '--config', config])
