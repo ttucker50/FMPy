@@ -1,7 +1,9 @@
 #ifdef _WIN32
 #include "Windows.h"
 #include "Shlwapi.h"
-#pragma comment(lib, "shlwapi.lib") 
+#pragma comment(lib, "shlwapi.lib")
+#else
+#define MAX_PATH 2048
 #endif
 
 #include <iostream>
@@ -21,7 +23,9 @@ static void functionInThisDll() {}
 
 static rpc::client *client = nullptr;
 
+#ifdef _WIN32
 static 	PROCESS_INFORMATION s_proccessInfo;
+#endif
 
 static fmi2CallbackLogger s_logger = nullptr;
 
@@ -38,7 +42,7 @@ const char* fmi2GetTypesPlatform() {
 }
 
 const char* fmi2GetVersion() {
-	return fmi2Version;
+    return fmi2Version;
 }
 
 static void forwardLogMessages(const list<LogMessage> &logMessages) {
@@ -62,8 +66,10 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 	
 	s_logger = functions->logger;
 
-	char path[MAX_PATH];
+#ifdef _WIN32
+    char path[MAX_PATH];
 	char win32DllPath[MAX_PATH];
+
 	HMODULE hm = NULL;
 
 	if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
@@ -91,6 +97,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 	if (strcmp(fname, "client") == 0) {
 		functions->logger(NULL, instanceName, fmi2OK, "info", "Server started externally.");
 	} else {
+
 		PathRemoveFileSpec(path);
 
 		// build the 32-bit DLL path
@@ -138,9 +145,18 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 		);
 
 	}
+#endif
+
+    cout << "connecting..." << endl;
 
 	client = new rpc::client("localhost", rpc::constants::DEFAULT_PORT);
+
+    cout << "conected." << endl;
+
 	auto r = client->call("fmi2Instantiate", instanceName, (int)fmuType, fmuGUID, fmuResourceLocation, visible, loggingOn).as<ReturnValue>();
+
+    cout << "instantiated." << endl;
+
 	forwardLogMessages(r.logMessages);
 	return fmi2Component(r.status);
 }
@@ -151,7 +167,9 @@ void fmi2FreeInstance(fmi2Component c) {
 	//// Close process and thread handles
 	//CloseHandle(s_proccessInfo.hProcess);
 	//CloseHandle(s_proccessInfo.hThread);
+#ifdef _WIN32
 	auto s = TerminateProcess(s_proccessInfo.hProcess, EXIT_SUCCESS);
+#endif
 }
 
 /* Enter and exit initialization mode, terminate and reset */

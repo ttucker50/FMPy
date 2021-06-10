@@ -11,6 +11,7 @@
 #include <time.h>
 #include <list>
 #include <iostream>
+#include <stdexcept>
 
 #include "rpc/server.h"
 
@@ -30,6 +31,7 @@ time_t s_lastActive;
 
 
 void logger(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
+    cout << "logger(" << message << ")" << endl;
 	s_logMessages.push_back({instanceName, status, category, message});
 }
 
@@ -84,6 +86,10 @@ private:
 		auto *fp = dlsym(libraryHandle, functionName);
 # endif
 
+        if (!fp) {
+            throw std::runtime_error(std::string("Failed to load ") + functionName);
+        }
+
 		return reinterpret_cast<T *>(fp);
 	}
 
@@ -131,6 +137,8 @@ public:
 		/* set the current directory to binaries/win32 */
 		char libraryDir[MAX_PATH];
 		strcpy(libraryDir, libraryPath.c_str());
+
+        cout << libraryPath << endl;
 
 #ifdef _WIN32
 		PathRemoveFileSpec(libraryDir);
@@ -247,11 +255,14 @@ public:
 			//return m_fmi2GetTypesPlatform();
 		});
 
-		srv.bind("fmi2GetVersion",       [this]() { return m_fmi2GetVersion(); });
+		srv.bind("fmi2GetVersion",       [this]() { 
+            cout << "fmi2GetVersion() called." << endl << flush;
+            return "5.3"; /* m_fmi2GetVersion(); */ });
 		srv.bind("fmi2SetDebugLogging",  [this]() { NOT_IMPLEMENTED });
 
 		/* Creation and destruction of FMU instances and setting debug status */
 		srv.bind("fmi2Instantiate",      [this](string const& instanceName, int fmuType, string const& fmuGUID, string const& fmuResourceLocation, int visible, int loggingOn) {
+
 			resetExitTimer();
 			m_instance = m_fmi2Instantiate(instanceName.c_str(), static_cast<fmi2Type>(fmuType), fmuGUID.c_str(), fmuResourceLocation.c_str(), &m_callbacks, visible, loggingOn);
 			
@@ -301,6 +312,14 @@ public:
 			resetExitTimer();
 			vector<double> value(vr.size());
 			int status = m_fmi2GetReal(m_instance, vr.data(), vr.size(), value.data());
+
+            //int status = fmi2Warning;
+
+            //value[0] = 0.1;
+            //value[1] = 0.2;
+
+            cout << "fmi2GetReal(" << m_instance << ", {" << vr[0] << ", " << vr[1] << "}, " << vr.size() << ", {" << value[0] << ", " << value[1] << "}) -> " << status << endl;
+
 			return createRealReturnValue(status, value);
 		});
 
@@ -575,25 +594,33 @@ public:
 int main(int argc, char *argv[]) {
 
 	if (argc != 2) {
+        puts("Usage: server <path_to_fmu>\n");
 		return EXIT_FAILURE;
 	}
 
-	FMU fmu(argv[1]);
+    try {
 
-	s_server = &fmu.srv;
-	time(&s_lastActive);
 
-	//DWORD dwThreadIdArray;
+	    FMU fmu(argv[1]);
 
-	//auto hThreadArray = CreateThread(
-	//	NULL,                   // default security attributes
-	//	0,                      // use default stack size  
-	//	MyThreadFunction,       // thread function name
-	//	NULL,                   // argument to thread function 
-	//	0,                      // use default creation flags 
-	//	&dwThreadIdArray);      // returns the thread identifier
+	    s_server = &fmu.srv;
+	    time(&s_lastActive);
 
-	fmu.srv.run();
+	    //DWORD dwThreadIdArray;
+
+	    //auto hThreadArray = CreateThread(
+	    //	NULL,                   // default security attributes
+	    //	0,                      // use default stack size  
+	    //	MyThreadFunction,       // thread function name
+	    //	NULL,                   // argument to thread function 
+	    //	0,                      // use default creation flags 
+	    //	&dwThreadIdArray);      // returns the thread identifier
+
+	    fmu.srv.run();
+
+    } catch (const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+    }
 
 	return EXIT_SUCCESS;
 }
