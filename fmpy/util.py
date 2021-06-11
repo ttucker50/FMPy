@@ -906,8 +906,8 @@ def add_remoting(filename):
     model_description = read_model_description(filename)
 
     current_dir = os.path.dirname(__file__)
-    client = os.path.join(current_dir, 'remoting', 'client.dll')
-    server = os.path.join(current_dir, 'remoting', 'server.exe')
+    client = os.path.join(current_dir, 'remoting', 'win64', 'client.dll')
+    server = os.path.join(current_dir, 'remoting', 'win32', 'server.exe')
     license = os.path.join(current_dir, 'remoting', 'license.txt')
 
     tempdir = extract(filename)

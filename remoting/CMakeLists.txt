@@ -6,6 +6,18 @@ project (remoting)
 
 set(RPCLIB "" CACHE STRING "RPCLIB installation directory")
 
+if (WIN32)
+    if ("${CMAKE_SIZEOF_VOID_P}" STREQUAL "8")
+        set(FMI_PLATFORM win64)
+    else ()
+        set(FMI_PLATFORM win32)
+	endif ()
+else ()
+    set(FMI_PLATFORM linux64)
+endif ()
+
+message("FMI_PLATFORM: ${FMI_PLATFORM}")
+
 if (MSVC)
   # link statically against the the Visual C runtime
   set(variables
@@ -60,11 +72,10 @@ else ()
     )
 endif ()
 
-# add_custom_command(TARGET server POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
-#  "$<TARGET_FILE:server>"
-#  "${CMAKE_CURRENT_SOURCE_DIR}/../../fmpy/remoting"
-# )
-
+add_custom_command(TARGET server POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
+  "$<TARGET_FILE:server>"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../fmpy/remoting/${FMI_PLATFORM}"
+)
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -106,6 +117,11 @@ else ()
       Threads::Threads
     )
 endif ()
+
+add_custom_command(TARGET client POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
+  "$<TARGET_FILE:client>"
+  "${CMAKE_CURRENT_SOURCE_DIR}/../fmpy/remoting/${FMI_PLATFORM}"
+)
 
 # client test
 add_executable(client_test

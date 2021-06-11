@@ -5,8 +5,8 @@ from subprocess import check_call
 from fmpy.util import download_file
 
 
-url = 'https://github.com/rpclib/rpclib/archive/v2.2.1.tar.gz'
-checksum = 'ceef2c521a1712035bc64d1bd5e3b2c7de16a1d856cbbeadd000ae318c96463f'
+url = 'https://github.com/rpclib/rpclib/archive/refs/tags/v2.3.0.tar.gz'
+checksum = 'eb9e6fa65e1a79b37097397f60599b93cb443d304fbc0447c50851bc3452fdef'
 
 # build configuration
 config = 'Release'
@@ -17,7 +17,7 @@ filename = os.path.basename(url)
 
 basedir = os.path.dirname(__file__)
 
-source_dir = 'rpclib-2.2.1'
+source_dir = 'rpclib-2.3.0'
 
 rpclib_dir = os.path.join(basedir, source_dir).replace('\\', '/')
 
@@ -26,6 +26,32 @@ shutil.rmtree(source_dir, ignore_errors=True)
 print("Extracting %s" % filename)
 with tarfile.open(filename, 'r:gz') as tar:
     tar.extractall()
+
+# patch the CMake project to link static against the MSVC runtime
+with open(os.path.join(source_dir, 'CMakeLists.txt'), 'a') as file:
+    # Append 'hello' at the end of file
+    file.write('''
+        
+# set_property(TARGET rpc PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+message(${CMAKE_CXX_FLAGS_RELEASE})
+message(${CMAKE_CXX_FLAGS_DEBUG})
+
+set(CompilerFlags
+        CMAKE_CXX_FLAGS
+        CMAKE_CXX_FLAGS_DEBUG
+        CMAKE_CXX_FLAGS_RELEASE
+        CMAKE_C_FLAGS
+        CMAKE_C_FLAGS_DEBUG
+        CMAKE_C_FLAGS_RELEASE
+        )
+foreach(CompilerFlag ${CompilerFlags})
+  string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+endforeach()
+
+message(${CMAKE_CXX_FLAGS_RELEASE})
+message(${CMAKE_CXX_FLAGS_DEBUG})
+''')
+
 
 path = os.path.dirname(__file__)
 
@@ -41,13 +67,10 @@ for bitness, generator in [('win32', 'Visual Studio 15 2017'), ('win64', 'Visual
         source_dir
     ]
 
+    # build rpclib
     check_call(args=cmake_args)
     check_call(args=['cmake', '--build', source_dir + '/' + bitness, '--target', 'install', '--config', config])
 
-print("Building server.exe...")
-check_call(['cmake', '-G', 'Visual Studio 15 2017', '-D', 'RPCLIB=' + rpclib_dir + '/win32/rpc', '-B', 'server/build', 'server'])
-check_call(['cmake', '--build', 'server/build', '--config', config])
-
-print("Building client.dll...")
-check_call(['cmake', '-G', 'Visual Studio 15 2017 Win64', '-D', 'RPCLIB=' + rpclib_dir + '/win64/rpc', '-B', 'client/build', 'client'])
-check_call(['cmake', '--build', 'client/build', '--config', config])
+    # build remoting binaries
+    check_call(['cmake', '-B', bitness, '-G', 'Visual Studio 15 2017', '-D', 'RPCLIB=' + rpclib_dir + '/' + bitness + '/rpc', '-B', bitness, '.'])
+    check_call(['cmake', '--build', bitness, '--config', config])

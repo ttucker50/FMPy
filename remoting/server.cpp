@@ -86,9 +86,9 @@ private:
 		auto *fp = dlsym(libraryHandle, functionName);
 # endif
 
-        if (!fp) {
-            throw std::runtime_error(std::string("Failed to load ") + functionName);
-        }
+        //if (!fp) {
+        //    throw std::runtime_error(std::string("Failed to load ") + functionName);
+        //}
 
 		return reinterpret_cast<T *>(fp);
 	}

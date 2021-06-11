@@ -682,7 +682,7 @@ def simulate_fmu(filename,
         # start 32-bit server
         from subprocess import Popen
         server_path = os.path.dirname(__file__)
-        server_path = os.path.join(server_path, 'remoting', 'server.exe')
+        server_path = os.path.join(server_path, 'remoting', 'win32', 'server.exe')
         if fmi_type == 'ModelExchange':
             model_identifier = model_description.modelExchange.modelIdentifier
         else:
@@ -730,7 +730,7 @@ def instantiate_fmu(unzipdir, model_description, fmi_type=None, visible=False, d
     }
 
     if use_remoting:
-        fmu_args['libraryPath'] = os.path.join(os.path.dirname(__file__), 'remoting', 'client.dll')
+        fmu_args['libraryPath'] = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
 
     if logger is None:
         logger = printLogMessage
