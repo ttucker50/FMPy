@@ -617,7 +617,15 @@ def simulate_fmu(filename,
     platforms = supported_platforms(filename)
 
     # use 32-bit DLL remoting
-    use_remoting = platform == 'win64' and 'win64' not in platforms and 'win32' in platforms
+    use_remoting = False
+
+    if platform == 'win64':
+        if 'win32' in platforms:
+            use_remoting = True
+        elif 'linux64' in platforms:
+            import subprocess
+            process = subprocess.run(['where', 'wsl'])
+            use_remoting = process.returncode == 0
 
     if fmu_instance is None and platform not in platforms and not use_remoting:
         raise Exception("The current platform (%s) is not supported by the FMU." % platform)
@@ -681,14 +689,27 @@ def simulate_fmu(filename,
     if use_remoting:
         # start 32-bit server
         from subprocess import Popen
-        server_path = os.path.dirname(__file__)
-        server_path = os.path.join(server_path, 'remoting', 'win32', 'server.exe')
         if fmi_type == 'ModelExchange':
             model_identifier = model_description.modelExchange.modelIdentifier
         else:
             model_identifier = model_description.coSimulation.modelIdentifier
-        dll_path = os.path.join(unzipdir, 'binaries', 'win32', model_identifier + '.dll')
-        server = Popen([server_path, dll_path])
+
+        server_path = os.path.dirname(__file__)
+
+        if 'win32' in platforms:
+            server_path = os.path.join(server_path, 'remoting', 'win32', 'server.exe')
+            dll_path = os.path.join(unzipdir, 'binaries', 'win32', model_identifier + '.dll')
+            server = Popen([server_path, dll_path])
+        elif 'linux64' in platforms:
+            server_path = os.path.join(server_path, 'remoting', 'linux64', 'server').replace('\\', '/')
+            process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
+            server_path = process.stdout.decode("utf-8") .strip()
+
+            so_path = os.path.join(unzipdir, 'binaries', 'linux64', model_identifier + '.so').replace('\\', '/')
+            process = subprocess.run(['wsl', 'wslpath', so_path], capture_output=True, check=True)
+            so_path = process.stdout.decode("utf-8") .strip()
+
+            server = Popen(['wsl', server_path, so_path])
     else:
         server = None
 
