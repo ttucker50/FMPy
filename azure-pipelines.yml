@@ -27,7 +27,7 @@ jobs:
 
   - bash: |
       source activate py37
-      python build_fmucontainer.py
+      python build_remoting.py
     displayName: Build remoting binaries
 
   - bash: |
