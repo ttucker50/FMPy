@@ -15,7 +15,7 @@ download_file(url, checksum)
 
 filename = os.path.basename(url)
 
-basedir = os.path.dirname(__file__)
+basedir = os.path.abspath(os.path.dirname(__file__))
 
 source_dir = 'rpclib-2.3.0'
 
@@ -54,16 +54,13 @@ if os.name == 'nt':
     message(${CMAKE_CXX_FLAGS_DEBUG})
     ''')
 
-
-    path = os.path.dirname(__file__)
-
-    print("Building RPCLIB...")
     for bitness, generator in [('win32', 'Visual Studio 15 2017'), ('win64', 'Visual Studio 15 2017 Win64')]:
 
         # clean up
         shutil.rmtree(os.path.join(basedir, 'remoting', bitness), ignore_errors=True)
 
-        # build rpclib
+        print("Building rpclib...")
+
         check_call(args=[
             'cmake',
             '-B', source_dir + '/' + bitness,
@@ -75,7 +72,8 @@ if os.name == 'nt':
 
         check_call(args=['cmake', '--build', source_dir + '/' + bitness, '--target', 'install', '--config', config])
 
-        # build remoting binaries
+        print("Building remoting binaries...")
+
         check_call(args=[
             'cmake',
             '-B', 'remoting/' + bitness,
@@ -88,4 +86,30 @@ if os.name == 'nt':
 
 else:
 
-    pass
+    # clean up
+    shutil.rmtree(os.path.join(basedir, 'remoting', 'linux64'), ignore_errors=True)
+
+    print("Building rpclib...")
+
+    check_call(args=[
+        'cmake',
+        '-B', source_dir + '/linux64',
+        '-D', 'CMAKE_INSTALL_PREFIX=' + source_dir + '/linux64' + '/install',
+        '-D', 'CMAKE_POSITION_INDEPENDENT_CODE=ON',
+        '-G', 'Unix Makefiles',
+        source_dir
+    ])
+
+    check_call(args=['cmake', '--build', source_dir + '/linux64', '--target', 'install', '--config', config])
+
+    print("Building remoting binaries...")
+
+    check_call(args=[
+        'cmake',
+        '-B', 'remoting/' + 'linux64',
+        '-G', 'Unix Makefiles',
+        '-D', 'RPCLIB=' + rpclib_dir + '/linux64/install',
+        '-B', 'remoting/linux64', 'remoting'
+    ])
+
+    check_call(['cmake', '--build', 'remoting/linux64', '--config', config])
