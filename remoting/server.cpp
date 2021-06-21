@@ -31,7 +31,6 @@ time_t s_lastActive;
 
 
 void logger(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
-    cout << "logger(" << message << ")" << endl;
 	s_logMessages.push_back({instanceName, status, category, message});
 }
 
@@ -138,8 +137,6 @@ public:
 		char libraryDir[MAX_PATH];
 		strcpy(libraryDir, libraryPath.c_str());
 
-        cout << libraryPath << endl;
-
 #ifdef _WIN32
 		PathRemoveFileSpec(libraryDir);
 		SetCurrentDirectory(libraryDir);
@@ -148,6 +145,10 @@ public:
 #else
         libraryHandle = dlopen(libraryPath.c_str(), RTLD_LAZY);
 #endif
+
+        if (!libraryHandle) {
+            throw runtime_error("Failed to load shared library " + libraryPath + ".");
+        }
 
 		m_callbacks.logger = logger;
 		m_callbacks.allocateMemory = allocateMemory;
@@ -244,24 +245,19 @@ public:
 
 		/* Inquire version numbers of header files and setting logging status */
 		srv.bind("fmi2GetTypesPlatform", [this]() { 
-			//pixel p;
-			//p.status = fmi2OK;
-			//p.messages = { "OK!", "so far" };
-			//return p;
-			//ReturnValue r = { fmi2OK, {{"bb", 0, "foo", "bar"}} };
-			s_logMessages.push_back({ "bounce", 0, "fo!", "bar!!" });
-			ReturnValue r = { fmi2OK, s_logMessages };
-			return r;
-			//return m_fmi2GetTypesPlatform();
+			return m_fmi2GetTypesPlatform();
 		});
 
-		srv.bind("fmi2GetVersion",       [this]() { 
-            cout << "fmi2GetVersion() called." << endl << flush;
-            return "5.3"; /* m_fmi2GetVersion(); */ });
-		srv.bind("fmi2SetDebugLogging",  [this]() { NOT_IMPLEMENTED });
+		srv.bind("fmi2GetVersion", [this]() { 
+            return  m_fmi2GetVersion();
+        });
+
+		srv.bind("fmi2SetDebugLogging", [this]() { 
+            NOT_IMPLEMENTED
+        });
 
 		/* Creation and destruction of FMU instances and setting debug status */
-		srv.bind("fmi2Instantiate",      [this](string const& instanceName, int fmuType, string const& fmuGUID, string const& fmuResourceLocation, int visible, int loggingOn) {
+		srv.bind("fmi2Instantiate", [this](string const& instanceName, int fmuType, string const& fmuGUID, string const& fmuResourceLocation, int visible, int loggingOn) {
 
 			resetExitTimer();
 			m_instance = m_fmi2Instantiate(instanceName.c_str(), static_cast<fmi2Type>(fmuType), fmuGUID.c_str(), fmuResourceLocation.c_str(), &m_callbacks, visible, loggingOn);
@@ -312,15 +308,7 @@ public:
 			resetExitTimer();
 			vector<double> value(vr.size());
 			int status = m_fmi2GetReal(m_instance, vr.data(), vr.size(), value.data());
-
-            //int status = fmi2Warning;
-
-            //value[0] = 0.1;
-            //value[1] = 0.2;
-
-            cout << "fmi2GetReal(" << m_instance << ", {" << vr[0] << ", " << vr[1] << "}, " << vr.size() << ", {" << value[0] << ", " << value[1] << "}) -> " << status << endl;
-
-			return createRealReturnValue(status, value);
+            return createRealReturnValue(status, value);
 		});
 
 		srv.bind("fmi2GetInteger", [this](const vector<unsigned int> &vr) {
@@ -594,12 +582,11 @@ public:
 int main(int argc, char *argv[]) {
 
 	if (argc != 2) {
-        puts("Usage: server <path_to_fmu>\n");
+        cerr << "Usage: server <path_to_fmu>" << endl;
 		return EXIT_FAILURE;
 	}
 
     try {
-
 
 	    FMU fmu(argv[1]);
 
@@ -620,6 +607,7 @@ int main(int argc, char *argv[]) {
 
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
 
 	return EXIT_SUCCESS;
