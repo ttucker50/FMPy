@@ -695,32 +695,28 @@ def simulate_fmu(filename,
 
     else:
 
+        import subprocess
+
         if fmi_type == 'ModelExchange':
             model_identifier = model_description.modelExchange.modelIdentifier
         else:
             model_identifier = model_description.coSimulation.modelIdentifier
 
+        fmpy_dir = os.path.dirname(__file__)
+
         if platform == 'win64':
 
             if remote_platform == 'win32':
 
-                from subprocess import Popen
-
-                server_path = os.path.dirname(__file__)
-                server_path = os.path.join(server_path, 'remoting', 'win32', 'server.exe')
+                server_path = os.path.join(fmpy_dir, 'remoting', 'win32', 'server.exe')
                 dll_path = os.path.join(unzipdir, 'binaries', 'win32', model_identifier + '.dll')
 
-                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
-                server = Popen([server_path, dll_path])
+                library_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'client.dll')
+                server = subprocess.Popen([server_path, dll_path])
 
             elif remote_platform == 'linux64':
 
-                import subprocess
-                from subprocess import Popen
-
-                server_path = os.path.dirname(__file__)
-
-                server_path = os.path.join(server_path, 'remoting', 'linux64', 'server').replace('\\', '/')
+                server_path = os.path.join(fmpy_dir, 'remoting', 'linux64', 'server').replace('\\', '/')
                 process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
                 server_path = process.stdout.decode("utf-8") .strip()
 
@@ -728,17 +724,12 @@ def simulate_fmu(filename,
                 process = subprocess.run(['wsl', 'wslpath', so_path], capture_output=True, check=True)
                 so_path = process.stdout.decode("utf-8") .strip()
 
-                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
-                server = Popen(['wsl', server_path, so_path])
+                library_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'client.dll')
+                server = subprocess.Popen(['wsl', server_path, so_path])
 
             elif remote_platform == 'win64':
 
-                import subprocess
-                from subprocess import Popen
-
-                server_path = os.path.dirname(__file__)
-
-                server_path = os.path.join(server_path, 'remoting', 'win64', 'server.exe').replace('\\', '/')
+                server_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'server.exe').replace('\\', '/')
                 process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
                 server_path = process.stdout.decode("utf-8") .strip()
 
@@ -746,8 +737,8 @@ def simulate_fmu(filename,
                 process = subprocess.run(['wsl', 'wslpath', dll_path], capture_output=True, check=True)
                 dll_path = process.stdout.decode("utf-8") .strip()
 
-                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
-                server = Popen(['wsl', 'wine64', server_path, dll_path])
+                library_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'client.dll')
+                server = subprocess.Popen(['wsl', 'wine64', server_path, dll_path])
 
             else:
 
@@ -757,20 +748,12 @@ def simulate_fmu(filename,
 
             if remote_platform == 'win64':
 
-                import subprocess
-                from subprocess import Popen
-
-                server_path = os.path.dirname(__file__)
-                server_path = os.path.join(server_path, 'remoting', 'win64', 'server.exe')
+                server_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'server.exe')
                 dll_path = os.path.join(unzipdir, 'binaries', 'win64', model_identifier + '.dll')
 
-                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'linux64', 'client.so')
+                library_path = os.path.join(fmpy_dir, 'remoting', 'linux64', 'client.so')
 
-                print(server_path)
-                print(dll_path)
-                print(library_path)
-
-                server = Popen(['wine64', server_path, dll_path])
+                server = subprocess.Popen(['wine64', server_path, dll_path])
 
             else:
 
