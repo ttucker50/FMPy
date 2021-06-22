@@ -130,6 +130,8 @@ add_executable(client_test
   client_test.cpp
 )
 
+set_property(TARGET client_test PROPERTY CXX_STANDARD 11)
+
 target_include_directories(client_test PUBLIC
   ../fmpy/c-code
 )
