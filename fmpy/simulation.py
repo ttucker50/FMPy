@@ -688,64 +688,97 @@ def simulate_fmu(filename,
         tempdir = extract(filename, include=lambda n: n.startswith(tuple(required_paths)))
         unzipdir = tempdir
 
-    if remote_platform is not None:
+    if remote_platform is None:
+
+        server = None
+        library_path = None
+
+    else:
 
         if fmi_type == 'ModelExchange':
             model_identifier = model_description.modelExchange.modelIdentifier
         else:
             model_identifier = model_description.coSimulation.modelIdentifier
 
-        if platform == 'win64' and remote_platform == 'win32':
+        if platform == 'win64':
 
-            from subprocess import Popen
+            if remote_platform == 'win32':
 
-            server_path = os.path.dirname(__file__)
-            server_path = os.path.join(server_path, 'remoting', 'win32', 'server.exe')
-            dll_path = os.path.join(unzipdir, 'binaries', 'win32', model_identifier + '.dll')
+                from subprocess import Popen
 
-            library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
-            server = Popen([server_path, dll_path])
+                server_path = os.path.dirname(__file__)
+                server_path = os.path.join(server_path, 'remoting', 'win32', 'server.exe')
+                dll_path = os.path.join(unzipdir, 'binaries', 'win32', model_identifier + '.dll')
 
-        elif platform == 'win64' and remote_platform == 'linux64':
+                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
+                server = Popen([server_path, dll_path])
 
-            import subprocess
-            from subprocess import Popen
+            elif remote_platform == 'linux64':
 
-            server_path = os.path.dirname(__file__)
+                import subprocess
+                from subprocess import Popen
 
-            server_path = os.path.join(server_path, 'remoting', 'linux64', 'server').replace('\\', '/')
-            process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
-            server_path = process.stdout.decode("utf-8") .strip()
+                server_path = os.path.dirname(__file__)
 
-            so_path = os.path.join(unzipdir, 'binaries', 'linux64', model_identifier + '.so').replace('\\', '/')
-            process = subprocess.run(['wsl', 'wslpath', so_path], capture_output=True, check=True)
-            so_path = process.stdout.decode("utf-8") .strip()
+                server_path = os.path.join(server_path, 'remoting', 'linux64', 'server').replace('\\', '/')
+                process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
+                server_path = process.stdout.decode("utf-8") .strip()
 
-            library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
-            server = Popen(['wsl', server_path, so_path])
+                so_path = os.path.join(unzipdir, 'binaries', 'linux64', model_identifier + '.so').replace('\\', '/')
+                process = subprocess.run(['wsl', 'wslpath', so_path], capture_output=True, check=True)
+                so_path = process.stdout.decode("utf-8") .strip()
 
-        elif platform == 'win64' and remote_platform == 'win64':
+                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
+                server = Popen(['wsl', server_path, so_path])
 
-            import subprocess
-            from subprocess import Popen
+            elif remote_platform == 'win64':
 
-            server_path = os.path.dirname(__file__)
+                import subprocess
+                from subprocess import Popen
 
-            server_path = os.path.join(server_path, 'remoting', 'win64', 'server.exe').replace('\\', '/')
-            process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
-            server_path = process.stdout.decode("utf-8") .strip()
+                server_path = os.path.dirname(__file__)
 
-            dll_path = os.path.join(unzipdir, 'binaries', 'win64', model_identifier + '.dll').replace('\\', '/')
-            process = subprocess.run(['wsl', 'wslpath', dll_path], capture_output=True, check=True)
-            dll_path = process.stdout.decode("utf-8") .strip()
+                server_path = os.path.join(server_path, 'remoting', 'win64', 'server.exe').replace('\\', '/')
+                process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
+                server_path = process.stdout.decode("utf-8") .strip()
 
-            library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
-            server = Popen(['wsl', 'wine64', server_path, dll_path])
+                dll_path = os.path.join(unzipdir, 'binaries', 'win64', model_identifier + '.dll').replace('\\', '/')
+                process = subprocess.run(['wsl', 'wslpath', dll_path], capture_output=True, check=True)
+                dll_path = process.stdout.decode("utf-8") .strip()
 
-    else:
+                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'win64', 'client.dll')
+                server = Popen(['wsl', 'wine64', server_path, dll_path])
 
-        server = None
-        library_path = None
+            else:
+
+                raise Exception(f"The remote platform {remote_platform} is not supported on the current platform ({platform}).")
+
+        elif platform == 'linux64':
+
+            if remote_platform == 'win64':
+
+                import subprocess
+                from subprocess import Popen
+
+                server_path = os.path.dirname(__file__)
+                server_path = os.path.join(server_path, 'remoting', 'win64', 'server.exe')
+                dll_path = os.path.join(unzipdir, 'binaries', 'win64', model_identifier + '.dll')
+
+                library_path = os.path.join(os.path.dirname(__file__), 'remoting', 'linux64', 'client.so')
+
+                print(server_path)
+                print(dll_path)
+                print(library_path)
+
+                server = Popen(['wine64', server_path, dll_path])
+
+            else:
+
+                raise Exception(f"The remote platform {remote_platform} is not supported on the current platform ({platform}).")
+
+        else:
+
+            raise Exception(f"Remoting is not supported on the current platform ({platform}).")
 
     if fmu_instance is None:
         fmu = instantiate_fmu(unzipdir, model_description, fmi_type, visible, debug_logging, logger, fmi_call_logger, library_path)
