@@ -13,12 +13,12 @@ using namespace std;
 
 #ifdef _WIN32
 template<typename T> T *get(HMODULE libraryHandle, const char *functionName) {
-    auto *fp = GetProcAddress(libraryHandle, functionName);
+    void *fp = GetProcAddress(libraryHandle, functionName);
 	return reinterpret_cast<T *>(fp);
 }
 #else
 template<typename T> T *get(void *libraryHandle, const char *functionName) {
-    auto *fp = dlsym(libraryHandle, functionName);
+    void *fp = dlsym(libraryHandle, functionName);
     cout << functionName << " = " << fp << endl;
     return reinterpret_cast<T *>(fp);
 }
