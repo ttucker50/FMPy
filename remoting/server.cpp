@@ -80,9 +80,9 @@ private:
 	template<typename T> T *get(const char *functionName) {
 
 # ifdef _WIN32
-		auto *fp = GetProcAddress(libraryHandle, functionName);
+		void *fp = GetProcAddress(libraryHandle, functionName);
 # else
-		auto *fp = dlsym(libraryHandle, functionName);
+		void *fp = dlsym(libraryHandle, functionName);
 # endif
 
         //if (!fp) {
