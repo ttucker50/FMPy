@@ -50,6 +50,8 @@ add_executable(server
   server.cpp
 )
 
+set_property(TARGET server PROPERTY CXX_STANDARD 11)
+
 target_include_directories(server PUBLIC
   ..
   ../fmpy/c-code
@@ -102,9 +104,9 @@ set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
 find_package(Threads REQUIRED)
 
 target_include_directories(client PRIVATE
-  "${RPCLIB}/include"
   ..
   ../fmpy/c-code
+  "${RPCLIB}/include"
 )
 
 if (WIN32)
