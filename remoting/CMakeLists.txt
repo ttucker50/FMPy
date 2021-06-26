@@ -58,9 +58,9 @@ target_include_directories(server PUBLIC
   "${RPCLIB}/include"
 )
 
-#if (UNIX)
+if (UNIX)
     target_compile_options(server PRIVATE "-pthread")
-#endif ()
+endif ()
 
 if (WIN32)
     target_link_libraries(server
@@ -79,8 +79,10 @@ add_custom_command(TARGET server POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
   "${CMAKE_CURRENT_SOURCE_DIR}/../fmpy/remoting/${FMI_PLATFORM}"
 )
 
-set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+if (UNIX)
+    set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+    set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+endif ()
 
 # client
 add_library(client SHARED
@@ -99,9 +101,11 @@ set_target_properties(client PROPERTIES
     PREFIX ""
 )
 
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
-find_package(Threads REQUIRED)
+if (UNIX)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+    set(CMAKE_EXE_LINKER_FLAGS "-static-libgcc -static-libstdc++")
+    find_package(Threads REQUIRED)
+endif()
 
 target_include_directories(client PRIVATE
   ..
