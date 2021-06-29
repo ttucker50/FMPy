@@ -119,7 +119,7 @@ class SourceFileSet(object):
     includeDirectories: List[str] = Factory(list)
 
 
-@attrs
+@attrs(eq=False)
 class ScalarVariable(object):
 
     name = attrib(type=str)
