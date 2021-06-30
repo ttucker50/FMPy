@@ -6,6 +6,8 @@
 #define MAX_PATH 2048
 #endif
 
+#include <chrono>
+#include <thread>
 #include <iostream>
 #include <vector>
 #include "rpc/client.h"
@@ -159,7 +161,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
         } catch (exception e) {
             if (attempts < 10) {
                 delete client;
-                Sleep(1000);  // wait for the server to start
+                this_thread::sleep_for(chrono::milliseconds(500));  // wait for the server to start
             } else {
                 functions->logger(NULL, instanceName, fmi2Error, "info", e.what());
                 return nullptr;
