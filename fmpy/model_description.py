@@ -4,39 +4,6 @@ from typing import List, Union, IO
 from attr import attrs, attrib, Factory
 
 
-@attrs(eq=False)
-class ModelDescription(object):
-
-    guid = attrib(type=str, default=None, repr=False)
-    fmiVersion = attrib(type=str, default=None)
-    modelName = attrib(type=str, default=None)
-    description = attrib(type=str, default=None, repr=False)
-    generationTool = attrib(type=str, default=None, repr=False)
-    generationDateAndTime = attrib(type=str, default=None, repr=False)
-    variableNamingConvention = attrib(type=str, default='flat', repr=False)
-    numberOfContinuousStates = attrib(type=int, default=0, repr=False)
-    numberOfEventIndicators = attrib(type=int, default=0, repr=False)
-
-    defaultExperiment = attrib(type='DefaultExperiment', default=None, repr=False)
-
-    coSimulation = attrib(type='CoSimulation', default=None)
-    modelExchange = attrib(type='ModelExchange', default=None)
-    scheduledExecution = attrib(type='ScheduledExecution', default=None)
-
-    buildConfigurations = attrib(type=List['BuildConfiguration'], default=Factory(list), repr=False)
-
-    unitDefinitions = attrib(type=List['Unit'], default=Factory(list), repr=False)
-    typeDefinitions = attrib(type=List['SimpleType'], default=Factory(list), repr=False)
-    modelVariables = attrib(type=List['ScalarVariable'], default=Factory(list), repr=False)
-
-    # model structure
-    outputs = attrib(type=List['Unknown'], default=Factory(list), repr=False)
-    derivatives = attrib(type=List['Unknown'], default=Factory(list), repr=False)
-    clockedStates = attrib(type=List['Unknown'], default=Factory(list), repr=False)
-    eventIndicators = attrib(type=List['Unknown'], default=Factory(list), repr=False)
-    initialUnknowns = attrib(type=List['Unknown'], default=Factory(list), repr=False)
-
-
 @attrs(auto_attribs=True)
 class DefaultExperiment(object):
 
@@ -92,13 +59,6 @@ class ScheduledExecution(InterfaceType):
 
 
 @attrs(auto_attribs=True, eq=False)
-class BuildConfiguration(object):
-
-    modelIdentifier: str = None
-    sourceFileSets: List['SourceFileSet'] = Factory(list)
-
-
-@attrs(auto_attribs=True, eq=False)
 class PreProcessorDefinition(object):
 
     name: str = None
@@ -117,6 +77,77 @@ class SourceFileSet(object):
     preprocessorDefinitions: List[str] = Factory(list)
     sourceFiles: List[str] = Factory(list)
     includeDirectories: List[str] = Factory(list)
+
+
+@attrs(auto_attribs=True, eq=False)
+class BuildConfiguration(object):
+
+    modelIdentifier: str = None
+    sourceFileSets: List[SourceFileSet] = Factory(list)
+
+
+@attrs(eq=False)
+class Dimension(object):
+
+    start = attrib(type=str)
+    valueReference = attrib(type=int)
+
+
+@attrs(eq=False)
+class Item(object):
+    """ Enumeration Item """
+
+    name = attrib(type=str, default=None)
+    value = attrib(type=str, default=None)
+    description = attrib(type=str, default=None, repr=False)
+
+
+@attrs(eq=False)
+class SimpleType(object):
+    """ Type Definition """
+
+    name = attrib(type=str, default=None)
+    type = attrib(type=str, default=None)
+    quantity = attrib(type=str, default=None, repr=False)
+    unit = attrib(type=str, default=None)
+    displayUnit = attrib(type=str, default=None, repr=False)
+    relativeQuantity = attrib(type=str, default=None, repr=False)
+    min = attrib(type=str, default=None, repr=False)
+    max = attrib(type=str, default=None, repr=False)
+    nominal = attrib(type=str, default=None, repr=False)
+    unbounded = attrib(type=str, default=None, repr=False)
+    items = attrib(type=List[Item], default=Factory(list), repr=False)
+
+
+@attrs(eq=False)
+class Unit(object):
+
+    name = attrib(type=str, default=None)
+    baseUnit = attrib(type=str, default=None, repr=False)
+    displayUnits = attrib(type=List[str], default=Factory(list), repr=False)
+
+
+@attrs(eq=False)
+class BaseUnit(object):
+
+    kg = attrib(type=int, default=0)
+    m = attrib(type=int, default=0)
+    s = attrib(type=int, default=0)
+    A = attrib(type=int, default=0)
+    K = attrib(type=int, default=0)
+    mol = attrib(type=int, default=0)
+    cd = attrib(type=int, default=0)
+    rad = attrib(type=int, default=0)
+    factor = attrib(type=float, default=1.0)
+    offset = attrib(type=float, default=0.0)
+
+
+@attrs(eq=False)
+class DisplayUnit(object):
+
+    name = attrib(type=str, default=None)
+    factor = attrib(type=float, default=1.0, repr=False)
+    offset = attrib(type=float, default=0.0, repr=False)
 
 
 @attrs(eq=False)
@@ -149,9 +180,9 @@ class ScalarVariable(object):
     # TODO: resolve variables
     clocks = attrib(type=List[int], default=Factory(list))
 
-    declaredType = attrib(type='SimpleType', default=None, repr=False)
+    declaredType = attrib(type=SimpleType, default=None, repr=False)
 
-    dimensions = attrib(type=List['Dimension'], default=Factory(list))
+    dimensions = attrib(type=List[Dimension], default=Factory(list))
     "List of fixed dimensions"
 
     dimensionValueReferences = attrib(type=List[int], default=Factory(list))
@@ -207,78 +238,47 @@ class ScalarVariable(object):
 
 
 @attrs(eq=False)
-class Dimension(object):
-
-    start = attrib(type=str)
-    valueReference = attrib(type=int)
-
-
-@attrs(eq=False)
-class SimpleType(object):
-    """ Type Definition """
-
-    name = attrib(type=str, default=None)
-    type = attrib(type=str, default=None)
-    quantity = attrib(type=str, default=None, repr=False)
-    unit = attrib(type=str, default=None)
-    displayUnit = attrib(type=str, default=None, repr=False)
-    relativeQuantity = attrib(type=str, default=None, repr=False)
-    min = attrib(type=str, default=None, repr=False)
-    max = attrib(type=str, default=None, repr=False)
-    nominal = attrib(type=str, default=None, repr=False)
-    unbounded = attrib(type=str, default=None, repr=False)
-    items = attrib(type=List['Item'], default=Factory(list), repr=False)
-
-
-@attrs(eq=False)
-class Item(object):
-    """ Enumeration Item """
-
-    name = attrib(type=str, default=None)
-    value = attrib(type=str, default=None)
-    description = attrib(type=str, default=None, repr=False)
-
-
-@attrs(eq=False)
-class Unit(object):
-
-    name = attrib(type=str, default=None)
-    baseUnit = attrib(type=str, default=None, repr=False)
-    displayUnits = attrib(type=List[str], default=Factory(list), repr=False)
-
-
-@attrs(eq=False)
-class BaseUnit(object):
-
-    kg = attrib(type=int, default=0)
-    m = attrib(type=int, default=0)
-    s = attrib(type=int, default=0)
-    A = attrib(type=int, default=0)
-    K = attrib(type=int, default=0)
-    mol = attrib(type=int, default=0)
-    cd = attrib(type=int, default=0)
-    rad = attrib(type=int, default=0)
-    factor = attrib(type=float, default=1.0)
-    offset = attrib(type=float, default=0.0)
-
-
-@attrs(eq=False)
-class DisplayUnit(object):
-
-    name = attrib(type=str, default=None)
-    factor = attrib(type=float, default=1.0, repr=False)
-    offset = attrib(type=float, default=0.0, repr=False)
-
-
-@attrs(eq=False)
 class Unknown(object):
 
     index = attrib(type=int, default=0, repr=False)
-    variable = attrib(type='ScalarVariable', default=None)
-    dependencies = attrib(type=List['ScalarVariable'], default=Factory(list), repr=False)
+    variable = attrib(type=ScalarVariable, default=None)
+    dependencies = attrib(type=List[ScalarVariable], default=Factory(list), repr=False)
     dependenciesKind = attrib(type=List[str], default=Factory(list), repr=False)
     sourceline = attrib(type=int, default=0, repr=False)
     "Line number in the modelDescription.xml"
+
+
+@attrs(eq=False)
+class ModelDescription(object):
+
+    guid = attrib(type=str, default=None, repr=False)
+    fmiVersion = attrib(type=str, default=None)
+    modelName = attrib(type=str, default=None)
+    description = attrib(type=str, default=None, repr=False)
+    generationTool = attrib(type=str, default=None, repr=False)
+    generationDateAndTime = attrib(type=str, default=None, repr=False)
+    variableNamingConvention = attrib(type=str, default='flat', repr=False)
+    numberOfContinuousStates = attrib(type=int, default=0, repr=False)
+    numberOfEventIndicators = attrib(type=int, default=0, repr=False)
+
+    defaultExperiment = attrib(type=DefaultExperiment, default=None, repr=False)
+
+    coSimulation = attrib(type=CoSimulation, default=None)
+    modelExchange = attrib(type=ModelExchange, default=None)
+    scheduledExecution = attrib(type=ScheduledExecution, default=None)
+
+    buildConfigurations = attrib(type=List[BuildConfiguration], default=Factory(list), repr=False)
+
+    unitDefinitions = attrib(type=List[Unit], default=Factory(list), repr=False)
+    typeDefinitions = attrib(type=List[SimpleType], default=Factory(list), repr=False)
+    modelVariables = attrib(type=List[ScalarVariable], default=Factory(list), repr=False)
+
+    # model structure
+    outputs = attrib(type=List[Unknown], default=Factory(list), repr=False)
+    derivatives = attrib(type=List[Unknown], default=Factory(list), repr=False)
+    clockedStates = attrib(type=List[Unknown], default=Factory(list), repr=False)
+    eventIndicators = attrib(type=List[Unknown], default=Factory(list), repr=False)
+    initialUnknowns = attrib(type=List[Unknown], default=Factory(list), repr=False)
 
 
 class ValidationError(Exception):
