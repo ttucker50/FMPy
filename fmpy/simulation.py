@@ -735,17 +735,6 @@ def simulate_fmu(filename,
                 library_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'client.dll')
                 server = subprocess.Popen([server_path, dll_path])
 
-                # server_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'server.exe').replace('\\', '/')
-                # process = subprocess.run(['wsl', 'wslpath', server_path], capture_output=True, check=True)
-                # server_path = process.stdout.decode("utf-8") .strip()
-                #
-                # dll_path = os.path.join(unzipdir, 'binaries', 'win64', model_identifier + '.dll').replace('\\', '/')
-                # process = subprocess.run(['wsl', 'wslpath', dll_path], capture_output=True, check=True)
-                # dll_path = process.stdout.decode("utf-8") .strip()
-                #
-                # library_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'client.dll')
-                # server = subprocess.Popen(['wsl', 'wine64', server_path, dll_path])
-
             else:
 
                 raise Exception(f"The remote platform {remote_platform} is not supported on the current platform ({platform}).")
@@ -756,40 +745,22 @@ def simulate_fmu(filename,
 
                 server_path = os.path.join(fmpy_dir, 'remoting', 'win32', 'server.exe')
                 dll_path = os.path.join(unzipdir, 'binaries', 'win32', model_identifier + '.dll')
-
                 library_path = os.path.join(fmpy_dir, 'remoting', 'linux64', 'client.so')
-
                 server = subprocess.Popen(['wine', server_path, dll_path])
-
-                import time
-                print("Zzzzzz... win32")
-                time.sleep(2)
 
             elif remote_platform == 'win64':
 
                 server_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'server.exe')
                 dll_path = os.path.join(unzipdir, 'binaries', 'win64', model_identifier + '.dll')
-
                 library_path = os.path.join(fmpy_dir, 'remoting', 'linux64', 'client.so')
-
                 server = subprocess.Popen(['wine64', server_path, dll_path])
-
-                import time
-                print("Zzzzzz... win64")
-                time.sleep(2)
 
             elif remote_platform == 'linux64':
 
                 server_path = os.path.join(fmpy_dir, 'remoting', 'linux64', 'server')
                 dll_path = os.path.join(unzipdir, 'binaries', 'linux64', model_identifier + '.so')
-
                 library_path = os.path.join(fmpy_dir, 'remoting', 'linux64', 'client.so')
-
                 server = subprocess.Popen([server_path, dll_path])
-
-                import time
-                print("Zzzzzz... linux64")
-                time.sleep(2)
 
             else:
 

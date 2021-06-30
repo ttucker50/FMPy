@@ -129,7 +129,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 		si.cb = sizeof(si);
 		ZeroMemory(&s_proccessInfo, sizeof(s_proccessInfo));
 
-		functions->logger(NULL, "inst", fmi2OK, "info", lpCommandLine);
+		functions->logger(NULL, instanceName, fmi2OK, "info", lpCommandLine);
 
 		// start the program up
 		auto p = CreateProcess(NULL,   // the path
@@ -149,12 +149,24 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
     cout << "connecting..." << endl;
 
-	client = new rpc::client("localhost", rpc::constants::DEFAULT_PORT);
+    ReturnValue r;
 
-    cout << "conected." << endl;
-
-	auto r = client->call("fmi2Instantiate", instanceName, (int)fmuType, fmuGUID, fmuResourceLocation, visible, loggingOn).as<ReturnValue>();
-
+    for (int attempts = 0;; attempts++) {
+        try {
+            client = new rpc::client("localhost", rpc::constants::DEFAULT_PORT);
+            r = client->call("fmi2Instantiate", instanceName, (int)fmuType, fmuGUID, fmuResourceLocation, visible, loggingOn).as<ReturnValue>();
+            break;
+        } catch (exception e) {
+            if (attempts < 10) {
+                delete client;
+                Sleep(1000);  // wait for the server to start
+            } else {
+                functions->logger(NULL, instanceName, fmi2Error, "info", e.what());
+                return nullptr;
+            }
+        }
+    }
+    
     cout << "instantiated." << endl;
 
 	forwardLogMessages(r.logMessages);
