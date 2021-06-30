@@ -4,7 +4,7 @@ from typing import List, Union, IO
 from attr import attrs, attrib, Factory
 
 
-@attrs
+@attrs(eq=False)
 class ModelDescription(object):
 
     guid = attrib(type=str, default=None, repr=False)
@@ -46,7 +46,7 @@ class DefaultExperiment(object):
     stepSize: str = None
 
 
-@attrs
+@attrs(eq=False)
 class InterfaceType(object):
 
     modelIdentifier = attrib(type=str, default=None)
@@ -63,13 +63,13 @@ class InterfaceType(object):
     providesDirectionalDerivative = attrib(type=bool, default=False, repr=False)
 
 
-@attrs
+@attrs(eq=False)
 class ModelExchange(InterfaceType):
 
     completedIntegratorStepNotNeeded = attrib(type=bool, default=False, repr=False)
 
 
-@attrs
+@attrs(eq=False)
 class CoSimulation(InterfaceType):
 
     canHandleVariableCommunicationStepSize = attrib(type=bool, default=False, repr=False)
@@ -83,7 +83,7 @@ class CoSimulation(InterfaceType):
     hasEventMode = attrib(type=bool, default=False, repr=False)
 
 
-@attrs
+@attrs(eq=False)
 class ScheduledExecution(InterfaceType):
 
     maxOutputDerivativeOrder = attrib(type=int, default=0, repr=False)
@@ -91,14 +91,14 @@ class ScheduledExecution(InterfaceType):
     recommendedIntermediateInputSmoothness = attrib(type=int, default=0, repr=False)
 
 
-@attrs(auto_attribs=True)
+@attrs(auto_attribs=True, eq=False)
 class BuildConfiguration(object):
 
     modelIdentifier: str = None
     sourceFileSets: List['SourceFileSet'] = Factory(list)
 
 
-@attrs(auto_attribs=True)
+@attrs(auto_attribs=True, eq=False)
 class PreProcessorDefinition(object):
 
     name: str = None
@@ -107,7 +107,7 @@ class PreProcessorDefinition(object):
     description: str = None
 
 
-@attrs(auto_attribs=True)
+@attrs(auto_attribs=True, eq=False)
 class SourceFileSet(object):
 
     name: str = None
@@ -206,14 +206,14 @@ class ScalarVariable(object):
     shiftCounter = None
 
 
-@attrs
+@attrs(eq=False)
 class Dimension(object):
 
     start = attrib(type=str)
     valueReference = attrib(type=int)
 
 
-@attrs
+@attrs(eq=False)
 class SimpleType(object):
     """ Type Definition """
 
@@ -230,7 +230,7 @@ class SimpleType(object):
     items = attrib(type=List['Item'], default=Factory(list), repr=False)
 
 
-@attrs
+@attrs(eq=False)
 class Item(object):
     """ Enumeration Item """
 
@@ -239,7 +239,7 @@ class Item(object):
     description = attrib(type=str, default=None, repr=False)
 
 
-@attrs
+@attrs(eq=False)
 class Unit(object):
 
     name = attrib(type=str, default=None)
@@ -247,7 +247,7 @@ class Unit(object):
     displayUnits = attrib(type=List[str], default=Factory(list), repr=False)
 
 
-@attrs
+@attrs(eq=False)
 class BaseUnit(object):
 
     kg = attrib(type=int, default=0)
@@ -262,7 +262,7 @@ class BaseUnit(object):
     offset = attrib(type=float, default=0.0)
 
 
-@attrs
+@attrs(eq=False)
 class DisplayUnit(object):
 
     name = attrib(type=str, default=None)
@@ -270,7 +270,7 @@ class DisplayUnit(object):
     offset = attrib(type=float, default=0.0, repr=False)
 
 
-@attrs
+@attrs(eq=False)
 class Unknown(object):
 
     index = attrib(type=int, default=0, repr=False)
