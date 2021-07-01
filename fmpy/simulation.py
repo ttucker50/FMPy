@@ -685,7 +685,7 @@ def simulate_fmu(filename,
         required_paths = ['resources', 'binaries/' + platform, 'binaries/' + platform_tuple]
         if remote_platform:
             required_paths.append(os.path.join('binaries', remote_platform))
-        tempdir = extract(filename, include=lambda n: n.startswith(tuple(required_paths)))
+        tempdir = extract(filename, include=None if remote_platform else lambda n: n.startswith(tuple(required_paths)))
         unzipdir = tempdir
 
     if remote_platform is None:
