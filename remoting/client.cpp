@@ -97,7 +97,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 	_splitpath(path, drive, dir, fname, ext);
 
 	if (strcmp(fname, "client") == 0) {
-		functions->logger(NULL, instanceName, fmi2OK, "info", "Server started externally.");
+		functions->logger(NULL, instanceName, fmi2OK, "info", "Remoting server started externally.");
 	} else {
 
 		PathRemoveFileSpec(path);
@@ -131,7 +131,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 		si.cb = sizeof(si);
 		ZeroMemory(&s_proccessInfo, sizeof(s_proccessInfo));
 
-		functions->logger(NULL, instanceName, fmi2OK, "info", lpCommandLine);
+		functions->logger(NULL, instanceName, fmi2OK, "info", "Starting remoting server. Command: %s", lpCommandLine);
 
 		// start the program up
 		auto p = CreateProcess(NULL,   // the path
@@ -149,17 +149,17 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 	}
 #endif
 
-    cout << "connecting..." << endl;
-
     ReturnValue r;
 
     for (int attempts = 0;; attempts++) {
         try {
+            functions->logger(NULL, instanceName, fmi2OK, "info", "Trying to connect...");
             client = new rpc::client("localhost", rpc::constants::DEFAULT_PORT);
             r = client->call("fmi2Instantiate", instanceName, (int)fmuType, fmuGUID, fmuResourceLocation, visible, loggingOn).as<ReturnValue>();
             break;
         } catch (exception e) {
-            if (attempts < 10) {
+            if (attempts < 20) {
+                functions->logger(NULL, instanceName, fmi2OK, "info", "Connection failed.");
                 delete client;
                 this_thread::sleep_for(chrono::milliseconds(500));  // wait for the server to start
             } else {
@@ -169,7 +169,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
         }
     }
     
-    cout << "instantiated." << endl;
+    functions->logger(NULL, instanceName, fmi2OK, "info", "Connected.");
 
 	forwardLogMessages(r.logMessages);
 	return fmi2Component(r.status);
