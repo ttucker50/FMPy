@@ -785,7 +785,8 @@ def simulate_fmu(filename,
         fmu.freeInstance()
 
     if server is not None:
-        server.kill()
+        server.terminate()
+        server.wait()
 
     # clean up
     if tempdir is not None:
