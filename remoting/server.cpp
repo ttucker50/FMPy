@@ -46,7 +46,6 @@ static void resetExitTimer() {
 	time(&s_lastActive);
 }
 
-
 #ifdef _WIN32
 DWORD WINAPI MyThreadFunction(LPVOID lpParam) {
 
@@ -55,7 +54,7 @@ DWORD WINAPI MyThreadFunction(LPVOID lpParam) {
 		time_t currentTime;
 		time(&currentTime);
 
-		if (difftime(currentTime, s_lastActive) > 100) {
+		if (difftime(currentTime, s_lastActive) > 10) {
 			cout << "Client inactive for more than 10 seconds. Exiting." << endl;
 			s_server->stop();
 			return 0;
@@ -612,25 +611,31 @@ int main(int argc, char *argv[]) {
 
     try {
 
+        cout << "Loading " << argv[1] << endl;
+
 	    FMU fmu(argv[1]);
 
 	    s_server = &fmu.srv;
 	    time(&s_lastActive);
 
-	    //DWORD dwThreadIdArray;
+#ifdef _WIN32
+	    DWORD dwThreadIdArray;
 
-	    //auto hThreadArray = CreateThread(
-	    //	NULL,                   // default security attributes
-	    //	0,                      // use default stack size  
-	    //	MyThreadFunction,       // thread function name
-	    //	NULL,                   // argument to thread function 
-	    //	0,                      // use default creation flags 
-	    //	&dwThreadIdArray);      // returns the thread identifier
+	    auto hThreadArray = CreateThread(
+	    	NULL,                   // default security attributes
+	    	0,                      // use default stack size  
+	    	MyThreadFunction,       // thread function name
+	    	NULL,                   // argument to thread function 
+	    	0,                      // use default creation flags 
+	    	&dwThreadIdArray);      // returns the thread identifier
+#endif
+
+        cout << "Starting RPC server" << endl;
 
 	    fmu.srv.run();
 
     } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        cerr << e.what() << endl;
         return EXIT_FAILURE;
     }
 
