@@ -4,6 +4,8 @@
 #pragma comment(lib, "shlwapi.lib")
 #else
 #include <dlfcn.h>
+#include <unistd.h>
+#include <pthread.h>
 #define MAX_PATH 2048
 #endif
 
@@ -48,8 +50,11 @@ static void resetExitTimer() {
 
 #ifdef _WIN32
 DWORD WINAPI MyThreadFunction(LPVOID lpParam) {
-
-	while (s_server) {
+#else
+void *doSomeThing(void *arg) {
+#endif
+    
+    while (s_server) {
 
 		time_t currentTime;
 		time(&currentTime);
@@ -60,12 +65,15 @@ DWORD WINAPI MyThreadFunction(LPVOID lpParam) {
 			return 0;
 		}
 
-		Sleep(500);
+#ifdef _WIN32
+        Sleep(500);
+#else
+        usleep(500000);
+#endif		
 	}
 
 	return 0;
 }
-#endif
 
 class FMU {
 
@@ -621,13 +629,20 @@ int main(int argc, char *argv[]) {
 #ifdef _WIN32
 	    DWORD dwThreadIdArray;
 
-	    auto hThreadArray = CreateThread(
+	    HANDLE hThreadArray = CreateThread(
 	    	NULL,                   // default security attributes
 	    	0,                      // use default stack size  
 	    	MyThreadFunction,       // thread function name
 	    	NULL,                   // argument to thread function 
 	    	0,                      // use default creation flags 
 	    	&dwThreadIdArray);      // returns the thread identifier
+#else
+        pthread_t tid;
+        int err = pthread_create(&tid, NULL, &doSomeThing, NULL);
+        if (err != 0)
+            printf("Can't create thread :[%s]", strerror(err));
+        else
+            printf("Thread created successfully\n");
 #endif
 
         cout << "Starting RPC server" << endl;
