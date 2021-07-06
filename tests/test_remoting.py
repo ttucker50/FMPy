@@ -1,8 +1,18 @@
 import shutil
+import subprocess
 import unittest
 from unittest import skipIf
 from fmpy import platform, supported_platforms, simulate_fmu, extract
 from fmpy.util import add_remoting, download_file
+
+
+def has_wsl():
+    """ Check for Windows Subsystem for Linux """
+    try:
+        subprocess.run(['wsl', '--help'])
+        return True
+    except:
+        return False
 
 
 @skipIf(platform != 'win64', "Remoting is only supported on Windows 64-bit")
@@ -51,3 +61,15 @@ class RemotingTest(unittest.TestCase):
         simulate_fmu(unzipdir, fmi_type='ModelExchange')
 
         shutil.rmtree(unzipdir, ignore_errors=True)
+
+    @skipIf(platform != 'win64' or not has_wsl(), "Requires Windows 64-bit and WSL")
+    def test_remoting_linux64(self):
+
+        download_file('https://github.com/modelica/fmi-cross-check/raw/master/fmus/2.0/cs/linux64/MapleSim/2021.1/Rectifier/Rectifier.fmu',
+                      checksum='b9238cd6bb684f1cf5b240ca140ed5b3f75719cacf81df5ff0cae74c2e31e52e')
+
+        filename = 'Rectifier.fmu'
+
+        self.assertNotIn('win64', supported_platforms(filename))
+
+        simulate_fmu(filename, remote_platform='linux64')
