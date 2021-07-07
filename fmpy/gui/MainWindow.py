@@ -267,7 +267,8 @@ class MainWindow(QMainWindow):
         self.ui.actionCompileWin64Binary.triggered.connect(lambda: self.compilePlatformBinary('win64'))
         self.ui.actionCreateJupyterNotebook.triggered.connect(self.createJupyterNotebook)
         self.ui.actionCreateCMakeProject.triggered.connect(self.createCMakeProject)
-        self.ui.actionAddRemoting.triggered.connect(self.addRemoting)
+        self.ui.actionAddWindows32Remoting.triggered.connect(lambda: self.addRemotingBinaries('win64', 'win32'))
+        self.ui.actionAddLinux64Remoting.triggered.connect(lambda: self.addRemotingBinaries('linux64', 'win64'))
         self.ui.actionAddCoSimulationWrapper.triggered.connect(self.addCoSimulationWrapper)
 
         # help menu
@@ -459,8 +460,8 @@ class MainWindow(QMainWindow):
 
         self.ui.actionCreateJupyterNotebook.setEnabled(True)
 
-        can_add_remoting = md.fmiVersion == '2.0' and 'win32' in platforms and 'win64' not in platforms
-        self.ui.actionAddRemoting.setEnabled(can_add_remoting)
+        self.ui.actionAddWindows32Remoting.setEnabled(md.fmiVersion == '2.0' and 'win32' in platforms and 'win64' not in platforms)
+        self.ui.actionAddLinux64Remoting.setEnabled(md.fmiVersion == '2.0' and 'win64' in platforms and 'linux64' not in platforms)
 
         can_add_cswrapper = md.fmiVersion == '2.0' and md.coSimulation is None and md.modelExchange is not None
         self.ui.actionAddCoSimulationWrapper.setEnabled(can_add_cswrapper)
@@ -1251,16 +1252,16 @@ class MainWindow(QMainWindow):
         if project_dir:
             create_cmake_project(self.filename, project_dir)
 
-    def addRemoting(self):
-        """ Add 32-bit remoting binaries to the FMU """
+
+    def addRemotingBinaries(self, host_platform, remote_platform):
 
         from ..util import add_remoting
 
         try:
-            add_remoting(self.filename)
+            add_remoting(self.filename, host_platform, remote_platform)
         except Exception as e:
-            QMessageBox.warning(self, "Failed to add 32-bit Remoting",
-                                "Failed to add 32-bit remoting binaries to %s. %s" % (self.filename, e))
+            QMessageBox.warning(self, "Failed to add Remoting Binaries",
+                                f"Failed to add remoting binaries to {self.filename}. {e}")
 
         self.load(self.filename)
 
