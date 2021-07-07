@@ -18,7 +18,7 @@ from fmpy.gui.generated.MainWindow import Ui_MainWindow
 import fmpy
 from fmpy import read_model_description, supported_platforms, platform
 from fmpy.model_description import ScalarVariable
-
+from fmpy.util import can_simulate
 
 from fmpy.gui.model import VariablesTableModel, VariablesTreeModel, VariablesModel, VariablesFilterModel
 from fmpy.gui.log import Log, LogMessagesFilterProxyModel
@@ -517,13 +517,13 @@ class MainWindow(QMainWindow):
         self.ui.actionShowLog.setEnabled(True)
         self.ui.actionShowResults.setEnabled(False)
 
-        can_simulate = platform in platforms or platform == 'win64' and 'win32' in platforms
+        can_sim, _ = can_simulate(platforms)
 
-        self.ui.actionLoadStartValues.setEnabled(can_simulate)
-        self.ui.actionSimulate.setEnabled(can_simulate)
-        self.stopTimeLineEdit.setEnabled(can_simulate)
-        self.fmiTypeComboBox.setEnabled(can_simulate and len(fmi_types) > 1)
-        self.ui.settingsGroupBox.setEnabled(can_simulate)
+        self.ui.actionLoadStartValues.setEnabled(can_sim)
+        self.ui.actionSimulate.setEnabled(can_sim)
+        self.stopTimeLineEdit.setEnabled(can_sim)
+        self.fmiTypeComboBox.setEnabled(can_sim and len(fmi_types) > 1)
+        self.ui.settingsGroupBox.setEnabled(can_sim)
 
         settings = QSettings()
         recent_files = settings.value("recentFiles", defaultValue=[])

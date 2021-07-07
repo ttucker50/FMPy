@@ -581,7 +581,7 @@ def simulate_fmu(filename,
                  model_description: ModelDescription = None,
                  fmu_instance: _FMU = None,
                  set_input_derivatives: bool = False,
-                 remote_platform: str = None) -> SimulationResult:
+                 remote_platform: str = 'auto') -> SimulationResult:
     """ Simulate an FMU
 
     Parameters:
@@ -608,34 +608,41 @@ def simulate_fmu(filename,
         model_description      the previously loaded model description (experimental)
         fmu_instance           the previously instantiated FMU (experimental)
         set_input_derivatives  set the input derivatives (FMI 2.0 Co-Simulation only)
-        remote_platform        platform to use for remoting server (experimental)
+        remote_platform        platform to use for remoting server ('auto': determine automatically if current platform
+                               is not supported, None: no remoting; experimental)
     Returns:
         result              a structured numpy array that contains the result
     """
 
-    from fmpy import supported_platforms, platform_tuple
+    from fmpy import supported_platforms
     from fmpy.model_description import read_model_description
+    from fmpy.util import has_wine64, has_wsl, can_simulate
 
     platforms = supported_platforms(filename)
 
-    # use 32-bit DLL remoting
-    # use_remoting = False
+    if fmu_instance is None and platform not in platforms and remote_platform is None:
+        raise Exception(f"The current platform ({platform}) is not supported by the FMU.")
 
-    # if platform == 'win64':
-    #     if 'win32' in platforms:
-    #         use_remoting = True
-    #     elif 'linux64' in platforms:
-    #         import subprocess
-    #         process = subprocess.run(['where', 'wsl'])
-    #         use_remoting = process.returncode == 0
+    can_sim, remote_platform = can_simulate(platforms, remote_platform)
 
-    if fmu_instance is None and platform not in platforms and not remote_platform:
-        raise Exception("The current platform (%s) is not supported by the FMU." % platform)
+    if not can_sim:
+        raise Exception(f"The FMU cannot be simulated on the current platform ({platform}).")
+
+    # if platform not in platforms and remote_platform == 'auto':
+    #     if platform == 'win64' and 'win32' in platforms:
+    #         remote_platform = 'win32'
+    #     elif platform == 'win64' and 'linux64' in platforms and has_wsl():
+    #         remote_platform = 'linux64'
+    #     elif platform == 'linux64' and 'win64' in platforms and has_wine64():
+    #         remote_platform = 'win64'
+    #     else:
+    #         raise Exception(f"The FMU cannot be simulated on the current platform ({platform}).")
+    #
+    # if platform not in platforms and remote_platform not in platforms:
+    #     raise Exception(f"The current platform ({platform}) is not supported by the FMU.")
 
     if model_description is None:
         model_description = read_model_description(filename, validate=validate)
-    else:
-        model_description = model_description
 
     if fmi_type is None:
         if fmu_instance is not None:
@@ -682,7 +689,7 @@ def simulate_fmu(filename,
         unzipdir = filename
         tempdir = None
     else:
-        required_paths = ['resources', 'binaries/' + platform, 'binaries/' + platform_tuple]
+        required_paths = ['resources', 'binaries/']
         if remote_platform:
             required_paths.append(os.path.join('binaries', remote_platform))
         tempdir = extract(filename, include=None if remote_platform else lambda n: n.startswith(tuple(required_paths)))

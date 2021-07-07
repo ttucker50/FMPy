@@ -2,6 +2,7 @@
 #include "Windows.h"
 #include "Shlwapi.h"
 #pragma comment(lib, "shlwapi.lib")
+#pragma warning(disable:4996)  // for strdup()
 #else
 #include <dlfcn.h>
 #include <libgen.h>
@@ -81,58 +82,38 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
 #ifdef _WIN32
     char path[MAX_PATH];
-	char win32DllPath[MAX_PATH];
 
 	HMODULE hm = NULL;
 
 	if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
 		GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-		(LPCSTR)&functionInThisDll, &hm) == 0)
-	{
+		(LPCSTR)&functionInThisDll, &hm) == 0) {
 		int ret = GetLastError();
 		//fprintf(stderr, "GetModuleHandle failed, error = %d\n", ret);
 		// Return or however you want to handle an error.
 	}
-	if (GetModuleFileName(hm, path, sizeof(path)) == 0)
-	{
+
+	if (GetModuleFileName(hm, path, sizeof(path)) == 0) {
 		int ret = GetLastError();
 		//fprintf(stderr, "GetModuleFileName failed, error = %d\n", ret);
 		// Return or however you want to handle an error.
 	}
 
-	char drive[_MAX_DRIVE];
-	char dir[_MAX_DIR];
-	char fname[_MAX_FNAME];
-	char ext[_MAX_EXT];
+    const string filename(path);
 
-	_splitpath(path, drive, dir, fname, ext);
+    const string linux64Path = filename.substr(0, filename.find_last_of('\\'));
 
-	if (strcmp(fname, "client") == 0) {
+    const string modelIdentifier = filename.substr(filename.find_last_of('\\') + 1, filename.find_last_of('.') - filename.find_last_of('\\') - 1);
+
+    const string binariesPath = linux64Path.substr(0, linux64Path.find_last_of('\\'));
+
+    if (!modelIdentifier.compare("client")) {
+
         s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Remoting server started externally.");
-	} else {
+	
+    } else {
 
-		PathRemoveFileSpec(path);
-
-		// build the 32-bit DLL path
-		strcpy(win32DllPath, path);
-		PathRemoveFileSpec(win32DllPath);
-		PathAppend(win32DllPath, "win32");
-		PathAppend(win32DllPath, fname);
-		strcat(win32DllPath, ".dll");
-
-		// build the server.exe path
-		PathAppend(path, "server.exe");
-
-		cout << path << endl;
-
-		char lpCommandLine[32767];
-
-		strcpy(lpCommandLine, path);
-		strcat(lpCommandLine, " ");
-		strcat(lpCommandLine, win32DllPath);
-		//strcat(lpCommandLine, "\"");
-
-		//LPSTR lpCommandLine_ = "E:\\Development\\FMPy\\wrapper\\server\\build\\Debug\\server.exe E:\\Development\\Reference-FMUs\\build\\temp\\BouncingBall\\binaries\\win32\\BouncingBall.dll";
+        const string command = binariesPath + "\\win32\\server.exe " + binariesPath + "\\win32\\" + modelIdentifier + ".dll";
 
 		// additional information
 		STARTUPINFO si;
@@ -142,21 +123,27 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 		si.cb = sizeof(si);
 		ZeroMemory(&s_proccessInfo, sizeof(s_proccessInfo));
 
-        s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting remoting server. Command: %s", lpCommandLine);
+        s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting remoting server. Command: %s", command.c_str());
 
 		// start the program up
-		auto p = CreateProcess(NULL,   // the path
-			lpCommandLine,        // Command line
-			NULL,           // Process handle not inheritable
-			NULL,           // Thread handle not inheritable
-			FALSE,          // Set handle inheritance to FALSE
-			0,              // No creation flags
-			NULL,           // Use parent's environment block
-			NULL,           // Use parent's starting directory 
-			&si,            // Pointer to STARTUPINFO structure
-			&s_proccessInfo // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+		const BOOL success = CreateProcessA(NULL, // the path
+            (LPSTR)command.c_str(),               // command line
+			NULL,                                 // process handle not inheritable
+			NULL,                                 // thread handle not inheritable
+			FALSE,                                // set handle inheritance to FALSE
+            CREATE_NO_WINDOW,                     // creation flags
+			NULL,                                 // use parent's environment block
+			NULL,                                 // use parent's starting directory 
+			&si,                                  // pointer to STARTUPINFO structure
+			&s_proccessInfo                       // pointer to PROCESS_INFORMATION structure
 		);
 
+        if (success) {
+            s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Server process id is %d.", s_proccessInfo.dwProcessId);
+        } else {
+            s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to start server.");
+            return nullptr;
+        }
 	}
 
 #else
@@ -165,99 +152,56 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
     dladdr((const void *)functionInThisDll, &info);
 
-    printf("info {%s, %p, %s, %p}\n", info.dli_fname, info.dli_fbase, info.dli_sname, info.dli_saddr);
+    const string filename(info.dli_fname);
 
-    //const size_t len = strlen(info.dli_fname) + strlen("/server") + 1;
-
-    //char *fname = (char *)malloc(len);
-    //    
-    //strncpy(fname, info.dli_fname, len);
-
-    //puts(fname);
-
-    //fname = dirname(fname);
-
-    //puts(fname);
-
-    //strncat(fname, "/server", len);
-
-    //puts(fname);
-
-    const string fn(info.dli_fname);
-
-    cout << fn << endl;
-
-    const string linux64Path = fn.substr(0, fn.find_last_of('/'));
-    const string modelIdentifier = fn.substr(fn.find_last_of('/') + 1, fn.find_last_of('.') - fn.find_last_of('/') - 1);
+    const string linux64Path = filename.substr(0, filename.find_last_of('/'));
+    
+    const string modelIdentifier = filename.substr(filename.find_last_of('/') + 1, filename.find_last_of('.') - filename.find_last_of('/') - 1);
 
     const string binariesPath = linux64Path.substr(0, linux64Path.find_last_of('/'));
 
-    //string remotePlatform = "win64";
-
-    //string remoteBinary = binariesPath + "/" + remotePlatform + "/" + modelIdentifier + ".dll";
-
-    //cout << remoteBinary << endl;
-
-    //string server = linux64Path + "/server";
-
-    //cout << server << endl;
-
-    //string command = server + " /mnt/e/Development/FMPy/playground/BouncingBall/binaries/linux64/BouncingBall.so &";
-
-    //string command = "wine64 /mnt/e/Development/FMPy/fmpy/remoting/win64/server.exe /mnt/e/Development/FMPy/playground/BouncingBall/binaries/win64/BouncingBall.dll &";
-
-    // cout << command << endl;
-
-    // system(command.c_str());
-
-    // cout << "Server started." << endl;
+    if (!modelIdentifier.compare("client")) {
     
-    pid_t pid = fork();
+        s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Remoting server started externally.");
+    
+    } else {
 
-    if (pid < 0) {
-        
-        cout << "Failed to create server process." << endl;
-        return nullptr;
+        const pid_t pid = fork();
 
-    } else if (pid == 0) {
-        
-        cout << "Child process. pid = " << pid << endl;
-        
-        cout << "Setting process id." << endl;
+        if (pid < 0) {
 
-        pid_t pgid = setsid();
-
-        if (pgid == -1) {
-            cout << "Failed to create session id." << endl;
+            s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to create server process.");
             return nullptr;
+
+        } else if (pid == 0) {
+
+            s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Child process (pid = %d).", pid);
+
+            pid_t pgid = setsid();
+
+            if (pgid == -1) {
+                s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to create session id.");
+                return nullptr;
+            }
+
+            const string command = "wine64 " + binariesPath + "/win64/server.exe " + binariesPath + "/win64/" + modelIdentifier + ".dll";
+
+            s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting server. Command: %s", command.c_str());
+
+            execl("/bin/sh", "sh", "-c", command.c_str(), nullptr);
+
+            s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to start server.");
+
+            return nullptr;
+
+        } else {
+
+            s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Server process id is %d.", pid);
+            s_pid = pid;
+
         }
 
-        cout << "pgid = " << pgid << endl;
-
-
-        cout << "Starting server..." << endl;
-
-        string command = "wine64 " + binariesPath + "/win64/server.exe " + binariesPath + "/win64/" + modelIdentifier + ".dll";
-
-        cout << command << endl;
-        
-        execl("/bin/sh", "sh", "-c", command.c_str(), NULL);
-        
-        // execl("/bin/sh", "sh", "-c", "wine64 /mnt/e/Development/FMPy/fmpy/remoting/win64/server.exe /mnt/e/Development/FMPy/playground/BouncingBall/binaries/win64/BouncingBall.dll", NULL);
-
-        cout << "Failed to start server." << endl;
-
-        // _exit(EXIT_FAILURE);
-        return nullptr;
-
-    } else {
-        cout << "Parent process. pid = " << pid << endl;
-        s_pid = pid;
     }
-
-    // execute the shell command
-    //execl(SHELL, SHELL, "-c", command, NULL);
-        
 #endif
 
     ReturnValue r;
