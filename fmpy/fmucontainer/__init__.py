@@ -1,26 +1,27 @@
 from tempfile import mkdtemp
 
-
-class Variable:
-
-    def __init__(self, type: str, variability: str, causality: str, name: str, start: str, description: str, mapping: list):
-
-        self.type = type
-        self.variability = variability
-        self.causality = causality
-        self.name = name
-        self.start = start
-        self.description = description
-        self.mapping = mapping
+from attr import attrs
 
 
-class Connection:
+@attrs(eq=False, auto_attribs=True)
+class Variable(object):
 
-    def __init__(self, startElement, startConnector, endElement, endConnector):
-        self.startElement = startElement
-        self.startConnector = startConnector
-        self.endElement = endElement
-        self.endConnector = endConnector
+    type: str = None
+    variability: str = None
+    causality: str = None
+    name: str = None
+    start: str = None
+    description: str = None
+    mapping: str = None
+
+
+@attrs(eq=False, auto_attribs=True)
+class Connection(object):
+
+    startElement: str
+    startConnector: str
+    endElement: str
+    endConnector: str
 
 
 def create_fmu_container(configuration, output_filename):
