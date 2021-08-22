@@ -69,26 +69,6 @@ private:
 
     string libraryPath;
 
-#ifdef _WIN32
-	HMODULE libraryHandle = nullptr;
-#else
-    void *libraryHandle = nullptr;
-#endif
-	template<typename T> T *get(const char *functionName) {
-
-# ifdef _WIN32
-		FARPROC fp = GetProcAddress(libraryHandle, functionName);
-# else
-		void *fp = dlsym(libraryHandle, functionName);
-# endif
-
-        if (!fp) {
-            throw std::runtime_error(std::string("Failed to load ") + functionName  + ".");
-        }
-
-		return reinterpret_cast<T *>(fp);
-	}
-
 	ReturnValue createReturnValue(int status) {
 		ReturnValue r = { status, s_logMessages };
 		s_logMessages.clear();
