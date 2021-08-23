@@ -2,6 +2,7 @@
 #include <Windows.h>
 #else
 #include <pthread.h>
+#include <unistd.h>
 #define MAX_PATH 2048
 #endif
 
