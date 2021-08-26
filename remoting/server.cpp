@@ -12,12 +12,9 @@
 #include <stdexcept>
 
 #include "rpc/server.h"
-
+#include "FMI2.h"
 #include "remoting.h"
 
-extern "C" {
-#include "FMI2.h"
-}
 
 using namespace std;
 

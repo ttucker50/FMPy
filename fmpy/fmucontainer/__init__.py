@@ -59,7 +59,7 @@ def create_fmu_container(configuration, output_filename):
 
     basedir = os.path.dirname(__file__)
 
-    for directory in ['binaries', 'documentation', 'sources']:
+    for directory in ['binaries', 'documentation']:
         shutil.copytree(os.path.join(basedir, directory), os.path.join(unzipdir, directory))
 
     os.mkdir(os.path.join(unzipdir, 'resources'))

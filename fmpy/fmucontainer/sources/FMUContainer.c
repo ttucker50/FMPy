@@ -85,7 +85,7 @@ END:
 }
 
 static fmi2CallbackLogger s_logger = NULL;
-static fmi3InstanceEnvironment s_envrionment = NULL;
+static fmi2ComponentEnvironment s_envrionment = NULL;
 
 void logFMIMessage(FMIInstance *instance, FMIStatus status, const char *category, const char *message) {
     // TODO: fix instance name and prepend child instance name
