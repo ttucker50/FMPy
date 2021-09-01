@@ -6,14 +6,12 @@
 #pragma comment(lib, "shlwapi.lib")
 #elif defined(__APPLE__)
 #include <libgen.h>
-#include <sys/syslimits.h>
 #else
 #define _GNU_SOURCE
 #include <libgen.h>
-#include <linux/limits.h>
 #endif
 
-#include <mpack.h>
+#include "cJSON.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -134,132 +132,132 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
 #endif
 
 	System *s = calloc(1, sizeof(System));
-#ifdef _WIN32
-    char configPath[MAX_PATH] = "";
-#else
-    char configPath[PATH_MAX] = "";
-#endif
-	strcpy(configPath, path);
-	strcat(configPath, "/config.mp");
 
-	// parse a file into a node tree
-	mpack_tree_t tree;
-	mpack_tree_init_filename(&tree, configPath, 0);
-	mpack_tree_parse(&tree);
-	mpack_node_t root = mpack_tree_root(&tree);
+    char configPath[4096] = "";
 
-	//mpack_node_print_to_stdout(root);
+    strcpy(configPath, path);
+	strcat(configPath, "/config.json");
 
-	mpack_node_t components = mpack_node_map_cstr(root, "components");
+    // read the JSON file
+    char * buffer = 0;
+    long length;
+    
+    FILE * f = fopen(configPath, "rb");
 
-	s->nComponents = mpack_node_array_length(components);
+    if (!f) {
+        functions->logger(NULL, instanceName, fmi2Error, "logError", "Failed to read %s.", configPath);
+        return NULL;
+    }
 
-	s->components = calloc(s->nComponents, sizeof(FMIInstance *));
+    fseek(f, 0, SEEK_END);
+    length = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    buffer = malloc(length);
+    fread(buffer, 1, length, f);
+    fclose(f);
+    
+    cJSON *json = cJSON_Parse(buffer);
 
-	for (size_t i = 0; i < s->nComponents; i++) {
-		mpack_node_t component = mpack_node_array_at(components, i);
+    cJSON *components = cJSON_GetObjectItem(json, "components");
 
-		mpack_node_t name = mpack_node_map_cstr(component, "name");
-		char *_name = mpack_node_cstr_alloc(name, 1024);
+    s->nComponents = cJSON_GetArraySize(components);
+    s->components = calloc(s->nComponents, sizeof(FMIInstance *));
 
-		mpack_node_t guid = mpack_node_map_cstr(component, "guid");
-        char *_guid = mpack_node_cstr_alloc(guid, 1024);
+    for (int i = 0; i < s->nComponents; i++) {
+            
+        cJSON *component = cJSON_GetArrayItem(components, i);
+    
+        cJSON *name = cJSON_GetObjectItemCaseSensitive(component, "name");
+        cJSON *guid = cJSON_GetObjectItemCaseSensitive(component, "guid");
+        cJSON *modelIdentifier = cJSON_GetObjectItemCaseSensitive(component, "modelIdentifier");
 
-		mpack_node_t modelIdentifier = mpack_node_map_cstr(component, "modelIdentifier");
-        char *_modelIdentifier = mpack_node_cstr_alloc(modelIdentifier, 1024);
+        char libraryPath[4096] = "";
 
-#ifdef _WIN32
-        char libraryPath[MAX_PATH] = "";
-
-        PathCombine(libraryPath, path, _modelIdentifier);
-        PathCombine(libraryPath, libraryPath, "binaries");
-#ifdef _WIN64
-        PathCombine(libraryPath, libraryPath, "win64");
-#else
-        PathCombine(libraryPath, libraryPath, "win32");
-#endif
-        PathCombine(libraryPath, libraryPath, _modelIdentifier);
-        strcat(libraryPath, ".dll");
-#else
-        char libraryPath[PATH_MAX] = "";
         strcpy(libraryPath, path);
         strcat(libraryPath, "/");
-        strcat(libraryPath, _modelIdentifier);
+        strcat(libraryPath, modelIdentifier->valuestring);
+
+#ifdef _WIN32
+
+#ifdef _WIN64
+        strcat(libraryPath, "/binaries/win64/");
+#else
+        strcat(libraryPath, "/binaries/win32/");
+#endif
+        
+        strcat(libraryPath, modelIdentifier->valuestring);
+        strcat(libraryPath, ".dll");
+
+#else
+
 #ifdef __APPLE__
         strcat(libraryPath, "/binaries/darwin64/");
-        strcat(libraryPath, _modelIdentifier);
+        strcat(libraryPath, modelIdentifier->valuestring);
         strcat(libraryPath, ".dylib");
 #else
         strcat(libraryPath, "/binaries/linux64/");
-        strcat(libraryPath, _modelIdentifier);
+        strcat(libraryPath, modelIdentifier->valuestring);
         strcat(libraryPath, ".so");
 #endif
 #endif
 
-        FMIInstance *m = FMICreateInstance(_name, libraryPath, logFMIMessage, NULL);
+        FMIInstance *m = FMICreateInstance(name->string, libraryPath, logFMIMessage, NULL);
 
-        FMI2Instantiate(m, NULL, fmi2CoSimulation, _guid, visible, loggingOn);
+        FMI2Instantiate(m, NULL, fmi2CoSimulation, guid->valuestring, visible, loggingOn);
 
         s->components[i] = m;
+    }
+
+    cJSON *connections = cJSON_GetObjectItem(json, "connections");
+
+    s->nConnections = cJSON_GetArraySize(connections);
+    s->connections = calloc(s->nConnections, sizeof(Connection));
+
+    for (int i = 0; i < s->nConnections; i++) {
+
+        const cJSON *connection = cJSON_GetArrayItem(connections, i);
+
+        cJSON *type = cJSON_GetObjectItemCaseSensitive(connection, "type");
+        s->connections[i].type = type->valuestring[0];
+
+        cJSON *startComponent = cJSON_GetObjectItemCaseSensitive(connection, "startComponent");
+        s->connections[i].startComponent = startComponent->valueint;
+
+        cJSON *endComponent = cJSON_GetObjectItemCaseSensitive(connection, "endComponent");
+        s->connections[i].endComponent = endComponent->valueint;
+        
+        cJSON *startValueReference = cJSON_GetObjectItemCaseSensitive(connection, "startValueReference");
+        s->connections[i].startValueReference = startValueReference->valueint;
+
+        cJSON *endValueReference = cJSON_GetObjectItemCaseSensitive(connection, "endValueReference");
+        s->connections[i].endValueReference = endValueReference->valueint;
 	}
 
-	mpack_node_t connections = mpack_node_map_cstr(root, "connections");
+    cJSON *variables = cJSON_GetObjectItem(json, "variables");
 
-	s->nConnections = mpack_node_array_length(connections);
-
-	s->connections = calloc(s->nConnections, sizeof(Connection));
-
-	for (size_t i = 0; i < s->nConnections; i++) {
-		mpack_node_t connection = mpack_node_array_at(connections, i);
-
-		mpack_node_t type = mpack_node_map_cstr(connection, "type");
-		s->connections[i].type = mpack_node_str(type)[0];
-
-		mpack_node_t startComponent = mpack_node_map_cstr(connection, "startComponent");
-		s->connections[i].startComponent = mpack_node_u64(startComponent);
-
-		mpack_node_t endComponent = mpack_node_map_cstr(connection, "endComponent");
-		s->connections[i].endComponent = mpack_node_u64(endComponent);
-
-		mpack_node_t startValueReference = mpack_node_map_cstr(connection, "startValueReference");
-		s->connections[i].startValueReference = mpack_node_u32(startValueReference);
-
-		mpack_node_t endValueReference = mpack_node_map_cstr(connection, "endValueReference");
-		s->connections[i].endValueReference = mpack_node_u32(endValueReference);
-	}
-
-	mpack_node_t variables = mpack_node_map_cstr(root, "variables");
-
-	s->nVariables = mpack_node_array_length(variables);
-
+	s->nVariables = cJSON_GetArraySize(variables);
 	s->variables = calloc(s->nVariables, sizeof(VariableMapping));
 
-	for (size_t i = 0; i < s->nVariables; i++) {
+	for (int i = 0; i < s->nVariables; i++) {
 		
-        mpack_node_t variable = mpack_node_array_at(variables, i);
+        cJSON *variable = cJSON_GetArrayItem(variables, i);
 
-        mpack_node_t components = mpack_node_map_cstr(variable, "components");
-        mpack_node_t valueReferences = mpack_node_map_cstr(variable, "valueReferences");
+        cJSON *components      = cJSON_GetObjectItem(variable, "components");
+        cJSON *valueReferences = cJSON_GetObjectItem(variable, "valueReferences");
 
-        s->variables[i].size = mpack_node_array_length(components);
+        s->variables[i].size = cJSON_GetArraySize(components);
         s->variables[i].ci = calloc(s->variables[i].size, sizeof(size_t));
         s->variables[i].vr = calloc(s->variables[i].size, sizeof(fmi2ValueReference));
 
-        for (size_t j = 0; j < s->variables[i].size; j++) {
+        for (int j = 0; j < s->variables[i].size; j++) {
 
-            mpack_node_t component = mpack_node_array_at(components, j);
-            mpack_node_t valueReference = mpack_node_array_at(valueReferences, j);
+            cJSON *component = cJSON_GetArrayItem(components, j);
+            cJSON *valueReference = cJSON_GetArrayItem(valueReferences, j);
 
-            s->variables[i].ci[j] = mpack_node_u64(component);
-            s->variables[i].vr[j] = mpack_node_u32(valueReference);
+            s->variables[i].ci[j] = component->valueint;
+            s->variables[i].vr[j] = valueReference->valueint;
         }
 		
-	}
-
-	// clean up and check for errors
-	if (mpack_tree_destroy(&tree) != mpack_ok) {
-        functions->logger(NULL, instanceName, fmi2Error, "logError", "An error occurred decoding %s.", configPath);
-		return NULL;
 	}
 
     return s;

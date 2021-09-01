@@ -1,5 +1,5 @@
+import json
 from tempfile import mkdtemp
-
 from attr import attrs
 
 
@@ -48,7 +48,6 @@ def create_fmu_container(configuration, output_filename):
     import shutil
     import fmpy
     from fmpy import read_model_description, extract
-    import msgpack
     from datetime import datetime
     import pytz
 
@@ -159,9 +158,8 @@ def create_fmu_container(configuration, output_filename):
             'endValueReference': component_map[c.endElement][1][c.endConnector].valueReference,
         })
 
-    with open(os.path.join(unzipdir, 'resources', 'config.mp'), 'wb') as f:
-        packed = msgpack.packb(data)
-        f.write(packed)
+    with open(os.path.join(unzipdir, 'resources', 'config.json'), 'w') as f:
+        json.dump(data, f, indent=2)
 
     shutil.make_archive(base_filename, 'zip', unzipdir)
 

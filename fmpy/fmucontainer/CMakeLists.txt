@@ -34,9 +34,8 @@ add_library(FMUContainer SHARED
   ../c-code/FMI.c
   ../c-code/FMI2.c
   sources/FMUContainer.c
-  sources/mpack.h
-  sources/mpack.c
-
+  sources/cJSON.h
+  sources/cJSON.c
 )
 
 SET_TARGET_PROPERTIES(FMUContainer PROPERTIES PREFIX "")
