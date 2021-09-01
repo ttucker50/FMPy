@@ -2,8 +2,6 @@
 
 #if defined(_WIN32)
 #include <Windows.h>
-#include <shlwapi.h>
-#pragma comment(lib, "shlwapi.lib")
 #elif defined(__APPLE__)
 #include <libgen.h>
 #else
