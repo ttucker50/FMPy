@@ -111,32 +111,15 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
         return NULL;
     }
 
-	const char *scheme1 = "file:///";
-	const char *scheme2 = "file:/";
-	char *path;
-
-	if (strncmp(fmuResourceLocation, scheme1, strlen(scheme1)) == 0) {
-		path = strdup(&fmuResourceLocation[strlen(scheme1) - 1]);
-	} else if (strncmp(fmuResourceLocation, scheme2, strlen(scheme2)) == 0) {
-		path = strdup(&fmuResourceLocation[strlen(scheme2) - 1]);
-	} else {
-        functions->logger(NULL, instanceName, fmi2Error, "logError", "The fmuResourceLocation must start with \"file:///\" or \"file:/\".");
-		return NULL;
-	}
-
-#ifdef _WIN32
-	// strip leading slash if path starts with a drive letter
-    if (strlen(path) > 2 && path[0] == '/' && path[2] == ':') {
-		strcpy(path, &path[1]);
-	}
-#endif
-
 	System *s = calloc(1, sizeof(System));
 
+    char resourcesPath[4096] = "";
     char configPath[4096] = "";
 
-    strcpy(configPath, path);
-	strcat(configPath, "/config.json");
+    FMIURIToPath(fmuResourceLocation, resourcesPath, 4096);
+
+    strncpy(configPath, resourcesPath, 4096);
+    strncat(configPath, "config.json", 4096);
 
     // read the JSON file
     char * buffer = 0;
@@ -173,7 +156,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
 
         char libraryPath[4096] = "";
 
-        strcpy(libraryPath, path);
+        strcpy(libraryPath, resourcesPath);
         strcat(libraryPath, "/");
         strcat(libraryPath, modelIdentifier->valuestring);
 
@@ -215,7 +198,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
 
     for (int i = 0; i < s->nConnections; i++) {
 
-        const cJSON *connection = cJSON_GetArrayItem(connections, i);
+        cJSON *connection = cJSON_GetArrayItem(connections, i);
 
         cJSON *type = cJSON_GetObjectItemCaseSensitive(connection, "type");
         s->connections[i].type = type->valuestring[0];
