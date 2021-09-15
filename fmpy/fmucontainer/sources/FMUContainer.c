@@ -182,9 +182,14 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
 #endif
 #endif
 
-        FMIInstance *m = FMICreateInstance(name->string, libraryPath, logFMIMessage, NULL);
+        FMIInstance *m = FMICreateInstance(name->valuestring, libraryPath, logFMIMessage, NULL);
 
-        FMI2Instantiate(m, NULL, fmi2CoSimulation, guid->valuestring, visible, loggingOn);
+        FMIStatus status = FMI2Instantiate(m, NULL, fmi2CoSimulation, guid->valuestring, visible, loggingOn);
+
+        if (status > FMIWarning) {
+            functions->logger(NULL, instanceName, fmi2Error, "logError", "Failed to instantiate %s.", name->valuestring);
+            return NULL;
+        }
 
         s->components[i] = m;
     }
