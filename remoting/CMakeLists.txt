@@ -59,7 +59,9 @@ set_property(TARGET server PROPERTY CXX_STANDARD 11)
 target_include_directories(server PUBLIC
   ..
   ../fmpy/c-code
-  "${RPCLIB}/include"
+  #"${RPCLIB}/include"
+  #C:/Users/tsr2/Downloads/msgpack-c-4.0.0/include
+  C:/Users/tsr2/Downloads/msgpack-c-4.0.0/win64/msgpack/include
 )
 
 if (UNIX)
@@ -68,7 +70,8 @@ endif ()
 
 if (WIN32)
     target_link_libraries(server
-      "${RPCLIB}/lib/rpc.lib"
+      #"${RPCLIB}/lib/rpc.lib"
+      C:/Users/tsr2/Downloads/msgpack-c-4.0.0/win64/msgpack/lib/msgpackc.lib
     )
 else ()
     target_link_libraries(server
@@ -114,16 +117,19 @@ endif()
 target_include_directories(client PRIVATE
   ..
   ../fmpy/c-code
-  "${RPCLIB}/include"
+  #"${RPCLIB}/include"
+  #C:/Users/tsr2/Downloads/msgpack-c-4.0.0/include
+  C:/Users/tsr2/Downloads/msgpack-c-4.0.0/win64/msgpack/include
 )
 
 if (WIN32)
     target_link_libraries(client
-      "${RPCLIB}/lib/rpc.lib"
+      #"${RPCLIB}/lib/rpc.lib"
+      C:/Users/tsr2/Downloads/msgpack-c-4.0.0/win64/msgpack/lib/msgpackc.lib
     )
 else ()
     target_link_libraries(client
-      "${RPCLIB}/lib/librpc.a"
+      #"${RPCLIB}/lib/librpc.a"
       Threads::Threads
     )
 endif ()
