@@ -3,16 +3,38 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include <msgpack.h>
+
+extern "C" {
+#include "FMI2.h"
+}
+
 #define BUFSIZE 4096
 
 typedef enum {
     rpc_fmi2GetTypesPlatform,
     rpc_fmi2GetVersion,
+    rpc_fmi2Instantiate,
+    rpc_fmi2SetupExperiment,
+    rpc_fmi2EnterInitializationMode,
+    rpc_fmi2ExitInitializationMode,
+    rpc_fmi2GetReal,
+    rpc_fmi2DoStep,
+    rpc_fmi2Terminate,
+    rpc_fmi2FreeInstance,
 } rpcFunction;
 
 
 static char s_response[1024];
 static size_t s_responseSize = 1024;
+
+FMIInstance *m_instance = NULL;
+
+//static list<LogMessage> s_logMessages;
+
+void logMessage(FMIInstance *instance, FMIStatus status, const char *category, const char *message) {
+	//s_logMessages.push_back({instance->name, status, category, message});
+}
 
 
 void handleGetTypesPlatform(uint32_t *length, char **message) {
@@ -30,50 +52,140 @@ int main(void)
 
     hStdout = GetStdHandle(STD_OUTPUT_HANDLE);
     hStdin = GetStdHandle(STD_INPUT_HANDLE);
-    if (
-        (hStdout == INVALID_HANDLE_VALUE) ||
-        (hStdin == INVALID_HANDLE_VALUE)
-        )
+    
+    if ((hStdout == INVALID_HANDLE_VALUE) || (hStdin == INVALID_HANDLE_VALUE)) {
         ExitProcess(1);
+    }
 
-    // Send something to this process's stdout using printf.
-    printf("\n ** This is a message from the child process. ** \n");
 
-    // This simple algorithm uses the existence of the pipes to control execution.
-    // It relies on the pipe buffers to ensure that no data is lost.
-    // Larger applications would use more advanced process control.
 
-    //for (;;)
-    //{
-        uint64_t length;
-        rpcFunction function;
+    for (;;) {
 
-        // Read from standard input and stop on error or no data.
-        bSuccess = ReadFile(hStdin, &length, sizeof(uint64_t), &dwRead, NULL);
+        msgpack_sbuffer sbuf;
+        msgpack_sbuffer_init(&sbuf);
 
-        printf("length: %u\n", length);
+        size_t size;
 
-        //char *msg = (char *)malloc(length);
+        bSuccess = ReadFile(hStdin, &size, sizeof(size_t), &dwRead, NULL);
+        if (!bSuccess) break;
 
-        //bSuccess = ReadFile(hStdin, msg, length, &dwRead, NULL);
+        char *data = (char *)malloc(size);
 
-        ////if (!bSuccess || dwRead == 0)
-        ////    break;
+        bSuccess = ReadFile(hStdin, data, size, &dwRead, NULL);
+        if (!bSuccess) break;
 
-        //printf("message: %s\n", msg);
+        msgpack_zone mempool;
+        msgpack_zone_init(&mempool, 2048);
 
-        //break;
+        msgpack_object deserialized;
+        msgpack_unpack(data, size, NULL, &mempool, &deserialized);
 
-        char *message;
+        auto& array = deserialized.via.array;
 
-        handleGetTypesPlatform(&length, &message);
+        msgpack_packer pk;
+        msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
 
-        // Write to standard output and stop on error.
-        bSuccess = WriteFile(hStdout, message, length, &dwWritten, NULL);
+        switch (array.ptr[0].via.i64) {
+        case rpc_fmi2GetTypesPlatform:
+            msgpack_pack_str(&pk, sizeof(fmi2TypesPlatform));
+            msgpack_pack_str_body(&pk, fmi2TypesPlatform, sizeof(fmi2TypesPlatform));
+            break;
+        case rpc_fmi2GetVersion:
+            msgpack_pack_str(&pk, sizeof(fmi2Version));
+            msgpack_pack_str_body(&pk, fmi2Version, sizeof(fmi2Version));
+            break;
+        case rpc_fmi2Instantiate: {
+            const char *instanceName = array.ptr[1].via.str.ptr;
+            const char *libraryPath = "C:\\Users\\tsr2\\Downloads\\BouncingBall\\binaries\\win64\\BouncingBall.dll";
+            fmi2Type fmuType = (fmi2Type)array.ptr[2].via.i64;
+            const char *fmuGUID = array.ptr[3].via.str.ptr;
+            const char *fmuResourceLocation = array.ptr[4].via.str.ptr;
+            fmi2Boolean visible = (fmi2Boolean)array.ptr[5].via.i64;
+            fmi2Boolean loggingOn = (fmi2Boolean)array.ptr[6].via.i64;
 
-        //if (!bSuccess)
-        //    break;
-    //}
+            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, nullptr);
+
+            fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
+
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_fix_uint64(&pk, reinterpret_cast<uint64_t>(m_instance));
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2Instantiate", strlen("rpc_fmi2Instantiate") + 1);
+
+            break; }
+        case rpc_fmi2SetupExperiment: {
+            fmi2Boolean toleranceDefined = (fmi2Boolean)array.ptr[1].via.i64;
+            fmi2Real tolerance = (fmi2Real)array.ptr[2].via.f64;
+            fmi2Real startTime = (fmi2Real)array.ptr[3].via.f64;
+            fmi2Boolean stopTimeDefined = (fmi2Boolean)array.ptr[4].via.i64;
+            fmi2Real stopTime = (fmi2Real)array.ptr[5].via.f64;
+
+            fmi2Status status = FMI2SetupExperiment(m_instance, toleranceDefined, tolerance, startTime, stopTimeDefined, stopTime);
+
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_int(&pk, status);
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2SetupExperiment", strlen("rpc_fmi2SetupExperiment") + 1);
+
+            break; }
+        case rpc_fmi2EnterInitializationMode: {
+            fmi2Status status = FMI2EnterInitializationMode(m_instance);
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_int(&pk, status);
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2EnterInitializationMode", strlen("rpc_fmi2EnterInitializationMode") + 1);
+            break; }
+        case rpc_fmi2ExitInitializationMode: {
+            fmi2Status status = FMI2ExitInitializationMode(m_instance);
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_int(&pk, status);
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2ExitInitializationMode", strlen("rpc_fmi2ExitInitializationMode") + 1);
+            break; }
+        case rpc_fmi2GetReal: {
+            auto vrs = array.ptr[1].via.array;
+            size_t nvr = vrs.size;
+            fmi2ValueReference *vr = (fmi2ValueReference *)calloc(nvr, sizeof(fmi2ValueReference));
+            fmi2Real *value = (fmi2Real *)calloc(nvr, sizeof(fmi2Real));
+            for (int i = 0; i < nvr; i++) {
+                vr[i] = vrs.ptr[i].via.u64;
+            }
+            fmi2Status status = FMI2GetReal(m_instance, vr, nvr, value);
+            msgpack_pack_array(&pk, 3);
+            msgpack_pack_int(&pk, status);
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2GetReal", strlen("rpc_fmi2GetReal") + 1);
+            msgpack_pack_array(&pk, nvr);
+            for (int i = 0; i < nvr; i++) {
+                msgpack_pack_double(&pk, value[i]);
+            }
+            break; }
+
+        case rpc_fmi2DoStep: {
+            
+            fmi2Real currentCommunicationPoint           = array.ptr[1].via.f64;
+            fmi2Real communicationStepSize               = array.ptr[2].via.f64;
+            fmi2Boolean noSetFMUStatePriorToCurrentPoint = (fmi2Boolean)array.ptr[3].via.i64;
+
+            fmi2Status status = FMI2DoStep(m_instance, currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint);
+
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_int(&pk, status);
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2DoStep", strlen("rpc_fmi2DoStep") + 1);
+
+            break;
+        }
+        default:
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_int(&pk, fmi2Error);
+            msgpack_pack_str_with_body(&pk, "Unknown RPC", strlen("Unknown RPC") + 1);
+            break;
+        }
+
+        bSuccess = WriteFile(hStdout, &sbuf.size, sizeof(size_t), &dwWritten, NULL);
+        if (!bSuccess) break;
+
+        bSuccess = WriteFile(hStdout, sbuf.data, sbuf.size, &dwWritten, NULL);
+        if (!bSuccess) break;
+    }
+
+    // TODO: clean up
+
     return 0;
 }
 

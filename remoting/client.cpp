@@ -10,6 +10,19 @@
 
 #include "fmi2Functions.h"
 
+typedef enum {
+    rpc_fmi2GetTypesPlatform,
+    rpc_fmi2GetVersion,
+    rpc_fmi2Instantiate,
+    rpc_fmi2SetupExperiment,
+    rpc_fmi2EnterInitializationMode,
+    rpc_fmi2ExitInitializationMode,
+    rpc_fmi2GetReal,
+    rpc_fmi2DoStep,
+    rpc_fmi2Terminate,
+    rpc_fmi2FreeInstance,
+} rpcFunction;
+
 
 #define BUFSIZE 4096 
 
@@ -19,13 +32,28 @@ HANDLE g_hChildStd_OUT_Rd = NULL;
 HANDLE g_hChildStd_OUT_Wr = NULL;
 
 //HANDLE g_hInputFile = NULL;
+//msgpack_sbuffer sbuf;
 
 void CreateChildProcess(void);
-void WriteToPipe(void);
+void WriteToPipe(msgpack_sbuffer &sbuf, msgpack_object &deserialized);
 void ReadFromPipe(void);
 void ErrorExit(PTSTR);
 
-int main()
+//int main()
+//{
+//    CreateChildProcess();
+//
+//    WriteToPipe();
+//
+//    printf("\nContents of child process STDOUT: >>>");
+//    ReadFromPipe();
+//    printf("<<< End of parent execution.\n");
+//
+//    return 0;
+//}
+
+void CreateChildProcess()
+// Create a child process that uses the previously created pipes for STDIN and STDOUT.
 {
     SECURITY_ATTRIBUTES saAttr;
 
@@ -57,51 +85,6 @@ int main()
     if (!SetHandleInformation(g_hChildStd_IN_Wr, HANDLE_FLAG_INHERIT, 0))
         ErrorExit(TEXT("Stdin SetHandleInformation"));
 
-    // Create the child process. 
-
-    CreateChildProcess();
-
-    // Get a handle to an input file for the parent. 
-    // This example assumes a plain text file and uses string output to verify data flow. 
-
-    //if (argc == 1)
-    //    ErrorExit(TEXT("Please specify an input file.\n"));
-
-    //g_hInputFile = CreateFile(
-    //    argv[1],
-    //    GENERIC_READ,
-    //    0,
-    //    NULL,
-    //    OPEN_EXISTING,
-    //    FILE_ATTRIBUTE_READONLY,
-    //    NULL);
-
-    //if (g_hInputFile == INVALID_HANDLE_VALUE)
-    //    ErrorExit(TEXT("CreateFile"));
-
-    // Write to the pipe that is the standard input for a child process. 
-    // Data is written to the pipe's buffers, so it is not necessary to wait
-    // until the child process is running before writing data.
-
-    WriteToPipe();
-    //printf("\n->Contents of %S written to child STDIN pipe.\n", argv[1]);
-
-    // Read from pipe that is the standard output for child process. 
-
-    printf("\n->Contents of child process STDOUT:\n\n");
-    ReadFromPipe();
-
-    printf("\n->End of parent execution.\n");
-
-    // The remaining open handles are cleaned up when this process terminates. 
-    // To avoid resource leaks in a larger application, close handles explicitly. 
-
-    return 0;
-}
-
-void CreateChildProcess()
-// Create a child process that uses the previously created pipes for STDIN and STDOUT.
-{
     TCHAR szCmdline[] = TEXT("server");
     PROCESS_INFORMATION piProcInfo;
     STARTUPINFO siStartInfo;
@@ -152,94 +135,36 @@ void CreateChildProcess()
         CloseHandle(g_hChildStd_OUT_Wr);
         CloseHandle(g_hChildStd_IN_Rd);
     }
+
+    /* msgpack::sbuffer is a simple buffer implementation. */
+    //msgpack_sbuffer_init(&sbuf);
 }
 
-void WriteToPipe(void)
+void WriteToPipe(msgpack_sbuffer &sbuf, msgpack_object &deserialized)
 
 // Read from a file and write its contents to the pipe for the child's STDIN.
 // Stop when there is no more data. 
-{
-    
-    /* msgpack::sbuffer is a simple buffer implementation. */
-    msgpack_sbuffer sbuf;
-    msgpack_sbuffer_init(&sbuf);
-
-    /* serialize values into the buffer using msgpack_sbuffer_write callback function. */
-    msgpack_packer pk;
-    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-
-    msgpack_pack_array(&pk, 3);
-    msgpack_pack_int(&pk, 1);
-    msgpack_pack_true(&pk);
-    msgpack_pack_str(&pk, 7);
-    msgpack_pack_str_body(&pk, "example", 7);
-
-    /* deserialize the buffer into msgpack_object instance. */
-    /* deserialized object is valid during the msgpack_zone instance alive. */
-    msgpack_zone mempool;
-    msgpack_zone_init(&mempool, 2048);
-
-    msgpack_object deserialized;
-    msgpack_unpack(sbuf.data, sbuf.size, NULL, &mempool, &deserialized);
-
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
-
-    auto array = deserialized.via.array;
-
-    auto o1 = array.ptr[0];
-    auto v1 = o1.via.i64;
-
-    auto o2 = array.ptr[1];
-    auto v2 = o1.via.boolean;
-
-    auto o3 = array.ptr[2];
-    auto v3 = o3.via.str;
-
-    std::string s3(v3.ptr, v3.size);
-
-    msgpack_zone_destroy(&mempool);
-    msgpack_sbuffer_destroy(&sbuf);
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+{    
     DWORD dwWritten;
-    //CHAR chBuf[BUFSIZE] = "dummy";
     BOOL bSuccess = FALSE;
-    //DWORD dwRead = strlen(chBuf);
 
-    char *msg = "A dummy message.";
-    uint64_t length = strlen(msg);
+    bSuccess = WriteFile(g_hChildStd_IN_Wr, &sbuf.size, sizeof(size_t), &dwWritten, NULL);
 
-    //for (;;)
-    //{
-    //    bSuccess = ReadFile(g_hInputFile, chBuf, BUFSIZE, &dwRead, NULL);
-    //    if (!bSuccess || dwRead == 0) break;
-
-    bSuccess = WriteFile(g_hChildStd_IN_Wr, &length, sizeof(uint64_t), &dwWritten, NULL);
-
-    bSuccess = WriteFile(g_hChildStd_IN_Wr, msg, length, &dwWritten, NULL);
+    bSuccess = WriteFile(g_hChildStd_IN_Wr, sbuf.data, sbuf.size, &dwWritten, NULL);
 
     //if (!bSuccess) break;
     //}
 
-    // Close the pipe handle so the child process stops reading. 
+    DWORD dwRead;
 
-    if (!CloseHandle(g_hChildStd_IN_Wr))
-        ErrorExit(TEXT("StdInWr CloseHandle"));
+    bSuccess = ReadFile(g_hChildStd_OUT_Rd, &sbuf.size, sizeof(size_t), &dwRead, NULL);
+
+    bSuccess = ReadFile(g_hChildStd_OUT_Rd, sbuf.data, sbuf.size, &dwRead, NULL);
+
+    msgpack_zone mempool;
+    msgpack_zone_init(&mempool, 2048);
+
+    msgpack_unpack(sbuf.data, sbuf.size, NULL, &mempool, &deserialized);
 }
 
 void ReadFromPipe(void)
@@ -348,8 +273,7 @@ Types for Common Functions
 
 /* Inquire version numbers of header files and setting logging status */
 const char* fmi2GetTypesPlatform() {
-    main();
-	return fmi2TypesPlatform;
+    return fmi2TypesPlatform;
 }
 
 const char* fmi2GetVersion() {
@@ -373,7 +297,37 @@ const char* fmi2GetVersion() {
 //}
 //
 ///* Creation and destruction of FMU instances and setting debug status */
-//fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
+fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
+    
+    CreateChildProcess();
+
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 7);
+
+    msgpack_pack_int(&pk, rpc_fmi2Instantiate);
+    msgpack_pack_str_with_body(&pk, instanceName, strlen(instanceName) + 1);
+    msgpack_pack_int(&pk, fmuType);
+    msgpack_pack_str_with_body(&pk, fmuGUID, strlen(fmuGUID) + 1);
+    msgpack_pack_str_with_body(&pk, fmuResourceLocation, strlen(fmuResourceLocation) + 1);
+    msgpack_pack_int(&pk, visible);
+    msgpack_pack_int(&pk, loggingOn);
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+
+    return reinterpret_cast<fmi2Component>(deserialized.via.array.ptr[0].via.u64);
+}
+
 //	
 //	s_logger = functions->logger;
 //    s_componentEnvironment = functions->componentEnvironment;
@@ -559,21 +513,87 @@ const char* fmi2GetVersion() {
 //#endif
 //}
 //
-///* Enter and exit initialization mode, terminate and reset */
-//fmi2Status fmi2SetupExperiment(fmi2Component c, fmi2Boolean toleranceDefined, fmi2Real tolerance, fmi2Real startTime, fmi2Boolean stopTimeDefined, fmi2Real stopTime) {
-//	auto r = client->call("fmi2SetupExperiment", toleranceDefined, tolerance, startTime, stopTimeDefined, stopTime).as<ReturnValue>();
-//	return handleReturnValue(r);
-//}
-//
-//fmi2Status fmi2EnterInitializationMode(fmi2Component c) {
-//	auto r = client->call("fmi2EnterInitializationMode").as<ReturnValue>();
-//	return handleReturnValue(r);
-//}
-//
-//fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
-//	auto r = client->call("fmi2ExitInitializationMode").as<ReturnValue>();
-//	return handleReturnValue(r);
-//}
+/* Enter and exit initialization mode, terminate and reset */
+fmi2Status fmi2SetupExperiment(fmi2Component c, fmi2Boolean toleranceDefined, fmi2Real tolerance, fmi2Real startTime, fmi2Boolean stopTimeDefined, fmi2Real stopTime) {
+
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 6);
+    msgpack_pack_int(&pk, rpc_fmi2SetupExperiment);
+    msgpack_pack_int(&pk, toleranceDefined);
+    msgpack_pack_double(&pk, tolerance);
+    msgpack_pack_double(&pk, startTime);
+    msgpack_pack_int(&pk, stopTimeDefined);
+    msgpack_pack_double(&pk, stopTime);
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+
+    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
+
+    return status;
+}
+
+fmi2Status fmi2EnterInitializationMode(fmi2Component c) {
+
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 1);
+    msgpack_pack_int(&pk, rpc_fmi2EnterInitializationMode);
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+
+    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
+
+    return status;
+}
+
+fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
+    
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 1);
+    msgpack_pack_int(&pk, rpc_fmi2ExitInitializationMode);
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+
+    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
+
+    return status;
+
+    // Close the pipe handle so the child process stops reading. 
+    if (!CloseHandle(g_hChildStd_IN_Wr))
+        ErrorExit(TEXT("StdInWr CloseHandle"));
+}
 //
 //fmi2Status fmi2Terminate(fmi2Component c) {
 //	auto r = client->call("fmi2Terminate").as<ReturnValue>();
@@ -584,16 +604,44 @@ const char* fmi2GetVersion() {
 //	auto r = client->call("fmi2Reset").as<ReturnValue>();
 //	return handleReturnValue(r);
 //}
-//
-///* Getting and setting variable values */
-//fmi2Status fmi2GetReal(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Real value[]) {
-//	vector<unsigned int> v_vr(vr, vr + nvr);
-//	auto r = client->call("fmi2GetReal", v_vr).as<RealReturnValue>();
-//	copy(r.value.begin(), r.value.end(), value);
-//	forwardLogMessages(r.logMessages);
-//	return fmi2Status(r.status);
-//}
-//
+
+/* Getting and setting variable values */
+fmi2Status fmi2GetReal(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Real value[]) {
+    
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 2);
+    msgpack_pack_int(&pk, rpc_fmi2GetReal);
+    msgpack_pack_array(&pk, nvr);
+    for (int i = 0; i < nvr; i++) {
+        msgpack_pack_uint32(&pk, vr[i]);
+    }
+
+    //msgpack_object deserialized;
+    //msgpack_zone mempool;
+    //msgpack_zone_init(&mempool, 2048);
+    //msgpack_unpack(sbuf.data, sbuf.size, NULL, &mempool, &deserialized);
+    ///* print the deserialized object. */
+    //msgpack_object_print(stdout, deserialized);
+    //puts("");
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+
+    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
+
+    return status;
+}
+
 //fmi2Status fmi2GetInteger(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Integer value[]) {
 //	vector<unsigned int> v_vr(vr, vr + nvr);
 //	auto r = client->call("fmi2GetInteger", v_vr).as<IntegerReturnValue>();
@@ -770,12 +818,34 @@ const char* fmi2GetVersion() {
 //	forwardLogMessages(r.logMessages);
 //	return fmi2Status(r.status);
 //}
-//
-//fmi2Status fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2Real communicationStepSize, fmi2Boolean noSetFMUStatePriorToCurrentPoint) {
-//	auto r = client->call("fmi2DoStep", double(currentCommunicationPoint), double(communicationStepSize), int(noSetFMUStatePriorToCurrentPoint)).as<ReturnValue>();
-//	return handleReturnValue(r);
-//}
-//
+
+fmi2Status fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2Real communicationStepSize, fmi2Boolean noSetFMUStatePriorToCurrentPoint) {
+    
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 4);
+    msgpack_pack_int(&pk, rpc_fmi2DoStep);
+    msgpack_pack_double(&pk, currentCommunicationPoint);
+    msgpack_pack_double(&pk, communicationStepSize);
+    msgpack_pack_int(&pk, noSetFMUStatePriorToCurrentPoint);
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+
+    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
+
+    return status;
+}
+
 //fmi2Status fmi2CancelStep(fmi2Component c) {
 //    NOT_IMPLEMENTED
 //}
