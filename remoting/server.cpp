@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+
 #include <list>
 #include <string>
+#include <iostream>
 
 #include <msgpack.h>
 
@@ -69,8 +71,15 @@ void handleGetTypesPlatform(uint32_t *length, char **message) {
     *message = platform;
 }
 
-int main(void)
-{
+
+
+int main(int argc, char *argv[]) {
+
+	if (argc != 2) {
+        std::cerr << "Usage: server <path_to_fmu>" << std::endl;
+		return EXIT_FAILURE;
+	}
+
     //CHAR chBuf[BUFSIZE];
     DWORD dwRead, dwWritten;
     HANDLE hStdin, hStdout;
@@ -120,7 +129,7 @@ int main(void)
             break;
         case rpc_fmi2Instantiate: {
             const char *instanceName = array.ptr[1].via.str.ptr;
-            const char *libraryPath = "C:\\Users\\tsr2\\Downloads\\BouncingBall\\binaries\\win64\\BouncingBall.dll";
+            const char *libraryPath = argv[1]; // "C:\\Users\\tsr2\\Downloads\\BouncingBall\\binaries\\win64\\BouncingBall.dll";
             fmi2Type fmuType = (fmi2Type)array.ptr[2].via.i64;
             const char *fmuGUID = array.ptr[3].via.str.ptr;
             const char *fmuResourceLocation = array.ptr[4].via.str.ptr;
