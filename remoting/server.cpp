@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <list>
+#include <string>
 
 #include <msgpack.h>
 
@@ -24,16 +26,40 @@ typedef enum {
     rpc_fmi2FreeInstance,
 } rpcFunction;
 
+struct LogMessage {
+    std::string instanceName;
+    fmi2Status status;
+    std::string category;
+    std::string message;
+};
+
 
 static char s_response[1024];
 static size_t s_responseSize = 1024;
 
 FMIInstance *m_instance = NULL;
 
-//static list<LogMessage> s_logMessages;
+static std::list<LogMessage> s_logMessages;
 
 void logMessage(FMIInstance *instance, FMIStatus status, const char *category, const char *message) {
-	//s_logMessages.push_back({instance->name, status, category, message});
+    s_logMessages.push_back({ instance->name, (fmi2Status)status, category, message });
+}
+
+void packLogMessages(msgpack_packer &pk, msgpack_sbuffer &sbuf) {
+
+    msgpack_pack_array(&pk, s_logMessages.size());
+
+    for (auto it = s_logMessages.begin(); it != s_logMessages.end(); it++) {
+        
+        msgpack_pack_array(&pk, 4);
+
+        msgpack_pack_str_with_body(&pk, it->instanceName.c_str(), it->instanceName.size() + 1);
+        msgpack_pack_int(&pk, it->status);
+        msgpack_pack_str_with_body(&pk, it->category.c_str(), it->category.size() + 1);
+        msgpack_pack_str_with_body(&pk, it->message.c_str(), it->message.size() + 1);
+    }
+
+    s_logMessages.clear();
 }
 
 
@@ -56,8 +82,6 @@ int main(void)
     if ((hStdout == INVALID_HANDLE_VALUE) || (hStdin == INVALID_HANDLE_VALUE)) {
         ExitProcess(1);
     }
-
-
 
     for (;;) {
 
@@ -107,22 +131,25 @@ int main(void)
 
             fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
 
+            //logMessage(m_instance, FMIOK, "test", "message");
+            //logMessage(m_instance, FMIWarning, "test2", "message2");
+
             msgpack_pack_array(&pk, 2);
             msgpack_pack_fix_uint64(&pk, reinterpret_cast<uint64_t>(m_instance));
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2Instantiate", strlen("rpc_fmi2Instantiate") + 1);
 
+            packLogMessages(pk, sbuf);
             break; }
         case rpc_fmi2Terminate: {
             fmi2Status status = FMI2Terminate(m_instance);
             msgpack_pack_array(&pk, 2);
             msgpack_pack_int(&pk, status);
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2Terminate", strlen("rpc_fmi2Terminate") + 1);
+            packLogMessages(pk, sbuf);
             break; }
         case rpc_fmi2FreeInstance: {
             FMI2FreeInstance(m_instance);
             msgpack_pack_array(&pk, 2);
             msgpack_pack_int(&pk, fmi2OK);
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2FreeInstance", strlen("rpc_fmi2FreeInstance") + 1);
+            packLogMessages(pk, sbuf);
             break; }
         case rpc_fmi2SetupExperiment: {
             fmi2Boolean toleranceDefined = (fmi2Boolean)array.ptr[1].via.i64;
@@ -135,20 +162,20 @@ int main(void)
 
             msgpack_pack_array(&pk, 2);
             msgpack_pack_int(&pk, status);
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2SetupExperiment", strlen("rpc_fmi2SetupExperiment") + 1);
+            packLogMessages(pk, sbuf);
 
             break; }
         case rpc_fmi2EnterInitializationMode: {
             fmi2Status status = FMI2EnterInitializationMode(m_instance);
             msgpack_pack_array(&pk, 2);
             msgpack_pack_int(&pk, status);
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2EnterInitializationMode", strlen("rpc_fmi2EnterInitializationMode") + 1);
+            packLogMessages(pk, sbuf);
             break; }
         case rpc_fmi2ExitInitializationMode: {
             fmi2Status status = FMI2ExitInitializationMode(m_instance);
             msgpack_pack_array(&pk, 2);
             msgpack_pack_int(&pk, status);
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2ExitInitializationMode", strlen("rpc_fmi2ExitInitializationMode") + 1);
+            packLogMessages(pk, sbuf);
             break; }
         case rpc_fmi2GetReal: {
             auto vrs = array.ptr[1].via.array;
@@ -161,7 +188,7 @@ int main(void)
             fmi2Status status = FMI2GetReal(m_instance, vr, nvr, value);
             msgpack_pack_array(&pk, 3);
             msgpack_pack_int(&pk, status);
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2GetReal", strlen("rpc_fmi2GetReal") + 1);
+            packLogMessages(pk, sbuf);
             msgpack_pack_array(&pk, nvr);
             for (int i = 0; i < nvr; i++) {
                 msgpack_pack_double(&pk, value[i]);
@@ -178,7 +205,7 @@ int main(void)
 
             msgpack_pack_array(&pk, 2);
             msgpack_pack_int(&pk, status);
-            msgpack_pack_str_with_body(&pk, "rpc_fmi2DoStep", strlen("rpc_fmi2DoStep") + 1);
+            packLogMessages(pk, sbuf);
 
             break;
         }

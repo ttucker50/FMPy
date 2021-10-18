@@ -23,6 +23,8 @@ typedef enum {
     rpc_fmi2FreeInstance,
 } rpcFunction;
 
+fmi2CallbackLogger s_logger = NULL;
+fmi2ComponentEnvironment s_componentEnvironment = NULL;
 
 #define BUFSIZE 4096 
 
@@ -38,6 +40,8 @@ void CreateChildProcess(void);
 void WriteToPipe(msgpack_sbuffer &sbuf, msgpack_object &deserialized);
 void ReadFromPipe(void);
 void ErrorExit(PTSTR);
+
+#define RETURN_FMI2STATUS return (fmi2Status)deserialized.via.array.ptr[0].via.i64;
 
 //int main()
 //{
@@ -165,6 +169,10 @@ void WriteToPipe(msgpack_sbuffer &sbuf, msgpack_object &deserialized)
     msgpack_zone_init(&mempool, 2048);
 
     msgpack_unpack(sbuf.data, sbuf.size, NULL, &mempool, &deserialized);
+
+    ///* print the deserialized object. */
+    //msgpack_object_print(stdout, deserialized);
+    //puts("");
 }
 
 void ReadFromPipe(void)
@@ -296,9 +304,25 @@ const char* fmi2GetVersion() {
 //	NOT_IMPLEMENTED
 //}
 //
-///* Creation and destruction of FMU instances and setting debug status */
+
+static void handleLogMessages(msgpack_object_array logMessages) {
+
+    for (int i = 0; i < logMessages.size; i++) {
+        auto m = logMessages.ptr[i].via.array;
+        auto instanceName = m.ptr[0].via.str.ptr;
+        auto status = m.ptr[1].via.i64;
+        auto category = m.ptr[2].via.str.ptr;
+        auto message = m.ptr[3].via.str.ptr;
+        s_logger(s_componentEnvironment, instanceName, (fmi2Status)status, category, message);
+    }
+}
+
+/* Creation and destruction of FMU instances and setting debug status */
 fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
     
+    s_logger = functions->logger;
+    s_componentEnvironment = functions->componentEnvironment;
+
     CreateChildProcess();
 
     msgpack_sbuffer sbuf;
@@ -324,6 +348,10 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     /* print the deserialized object. */
     msgpack_object_print(stdout, deserialized);
     puts("");
+
+    auto logMessages = deserialized.via.array.ptr[1].via.array;
+
+    handleLogMessages(logMessages);
 
     return reinterpret_cast<fmi2Component>(deserialized.via.array.ptr[0].via.u64);
 }
@@ -499,9 +527,9 @@ void fmi2FreeInstance(fmi2Component c) {
 
     WriteToPipe(sbuf, deserialized);
 
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
+    // Close the pipe handle so the child process stops reading. 
+    if (!CloseHandle(g_hChildStd_IN_Wr))
+        ErrorExit(TEXT("StdInWr CloseHandle"));
 }
 
 /* Enter and exit initialization mode, terminate and reset */
@@ -525,13 +553,7 @@ fmi2Status fmi2SetupExperiment(fmi2Component c, fmi2Boolean toleranceDefined, fm
 
     WriteToPipe(sbuf, deserialized);
 
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
-
-    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
-
-    return status;
+    RETURN_FMI2STATUS;
 }
 
 fmi2Status fmi2EnterInitializationMode(fmi2Component c) {
@@ -549,13 +571,7 @@ fmi2Status fmi2EnterInitializationMode(fmi2Component c) {
 
     WriteToPipe(sbuf, deserialized);
 
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
-
-    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
-
-    return status;
+    RETURN_FMI2STATUS;
 }
 
 fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
@@ -573,17 +589,7 @@ fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
 
     WriteToPipe(sbuf, deserialized);
 
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
-
-    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
-
-    return status;
-
-    // Close the pipe handle so the child process stops reading. 
-    if (!CloseHandle(g_hChildStd_IN_Wr))
-        ErrorExit(TEXT("StdInWr CloseHandle"));
+    RETURN_FMI2STATUS;
 }
 
 fmi2Status fmi2Terminate(fmi2Component c) {
@@ -601,13 +607,7 @@ fmi2Status fmi2Terminate(fmi2Component c) {
 
     WriteToPipe(sbuf, deserialized);
 
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
-
-    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
-
-    return status;
+    RETURN_FMI2STATUS;
 }
 
 //fmi2Status fmi2Reset(fmi2Component c) {
@@ -631,25 +631,19 @@ fmi2Status fmi2GetReal(fmi2Component c, const fmi2ValueReference vr[], size_t nv
         msgpack_pack_uint32(&pk, vr[i]);
     }
 
-    //msgpack_object deserialized;
-    //msgpack_zone mempool;
-    //msgpack_zone_init(&mempool, 2048);
-    //msgpack_unpack(sbuf.data, sbuf.size, NULL, &mempool, &deserialized);
-    ///* print the deserialized object. */
-    //msgpack_object_print(stdout, deserialized);
-    //puts("");
-
     msgpack_object deserialized;
 
     WriteToPipe(sbuf, deserialized);
 
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
+    auto v = deserialized.via.array.ptr[2].via.array;
 
-    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
+    // TODO: assert nvr == v.size
 
-    return status;
+    for (int i = 0; i < v.size; i++) {
+        value[i] = v.ptr[i].via.f64;
+    }
+
+    RETURN_FMI2STATUS;
 }
 
 //fmi2Status fmi2GetInteger(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Integer value[]) {
@@ -847,13 +841,7 @@ fmi2Status fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2R
 
     WriteToPipe(sbuf, deserialized);
 
-    /* print the deserialized object. */
-    msgpack_object_print(stdout, deserialized);
-    puts("");
-
-    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
-
-    return status;
+    RETURN_FMI2STATUS;
 }
 
 //fmi2Status fmi2CancelStep(fmi2Component c) {

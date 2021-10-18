@@ -27,7 +27,7 @@ template<typename T> T *get(void *libraryHandle, const char *functionName) {
 static void functionInThisDll() {}
 
 void logger(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
-    cout << message << endl;
+    cout << "[" << status << "]" << "[" << instanceName << "] " << message << endl;
 }
 
 #define CALL(f) if ((status = f) != fmi2OK) goto out;
