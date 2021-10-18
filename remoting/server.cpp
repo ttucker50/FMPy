@@ -112,6 +112,18 @@ int main(void)
             msgpack_pack_str_with_body(&pk, "rpc_fmi2Instantiate", strlen("rpc_fmi2Instantiate") + 1);
 
             break; }
+        case rpc_fmi2Terminate: {
+            fmi2Status status = FMI2Terminate(m_instance);
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_int(&pk, status);
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2Terminate", strlen("rpc_fmi2Terminate") + 1);
+            break; }
+        case rpc_fmi2FreeInstance: {
+            FMI2FreeInstance(m_instance);
+            msgpack_pack_array(&pk, 2);
+            msgpack_pack_int(&pk, fmi2OK);
+            msgpack_pack_str_with_body(&pk, "rpc_fmi2FreeInstance", strlen("rpc_fmi2FreeInstance") + 1);
+            break; }
         case rpc_fmi2SetupExperiment: {
             fmi2Boolean toleranceDefined = (fmi2Boolean)array.ptr[1].via.i64;
             fmi2Real tolerance = (fmi2Real)array.ptr[2].via.f64;

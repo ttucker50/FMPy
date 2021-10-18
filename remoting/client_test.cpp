@@ -85,7 +85,7 @@ int main()
     CALL(enterInitializationMode(c));
     CALL(exitInitializationMode(c));
 
-	fmi2ValueReference vr[2] = { 1, 3 };
+	const fmi2ValueReference vr[2] = { 1, 3 };
 	fmi2Real value[2] = { 0, 0 };
 
 	fmi2Real time = 0;

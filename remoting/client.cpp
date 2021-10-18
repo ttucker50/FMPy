@@ -483,36 +483,27 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 //	forwardLogMessages(r.logMessages);
 //	return fmi2Component(r.status);
 //}
-//
-//void fmi2FreeInstance(fmi2Component c) {
-//	client->call("fmi2FreeInstance");
-//
-//	//// Close process and thread handles
-//	//CloseHandle(s_proccessInfo.hProcess);
-//	//CloseHandle(s_proccessInfo.hThread);
-//#ifdef _WIN32
-//    if (s_proccessInfo.hProcess) {
-//        cout << "Terminating server." << endl;
-//        BOOL s = TerminateProcess(s_proccessInfo.hProcess, EXIT_SUCCESS);
-//    }
-//#else
-//    if (s_pid != 0) {
-//
-//        s_logger(s_componentEnvironment, s_instanceName, fmi2OK, "info", "Terminating server (process group id %d).", s_pid);
-//
-//        killpg(s_pid, SIGKILL);
-//
-//        int status;
-//        
-//        while (wait(&status) > 0) {
-//            s_logger(s_componentEnvironment, s_instanceName, fmi2OK, "info", "Waiting for child processes to terminate.");
-//        }
-//
-//        s_logger(s_componentEnvironment, s_instanceName, fmi2OK, "info", "Server terminated.");
-//    }
-//#endif
-//}
-//
+
+void fmi2FreeInstance(fmi2Component c) {
+
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 1);
+    msgpack_pack_int(&pk, rpc_fmi2FreeInstance);
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+}
+
 /* Enter and exit initialization mode, terminate and reset */
 fmi2Status fmi2SetupExperiment(fmi2Component c, fmi2Boolean toleranceDefined, fmi2Real tolerance, fmi2Real startTime, fmi2Boolean stopTimeDefined, fmi2Real stopTime) {
 
@@ -594,12 +585,31 @@ fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
     if (!CloseHandle(g_hChildStd_IN_Wr))
         ErrorExit(TEXT("StdInWr CloseHandle"));
 }
-//
-//fmi2Status fmi2Terminate(fmi2Component c) {
-//	auto r = client->call("fmi2Terminate").as<ReturnValue>();
-//	return handleReturnValue(r);
-//}
-//
+
+fmi2Status fmi2Terminate(fmi2Component c) {
+
+    msgpack_sbuffer sbuf;
+    msgpack_sbuffer_init(&sbuf);
+
+    msgpack_packer pk;
+    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    msgpack_pack_array(&pk, 1);
+    msgpack_pack_int(&pk, rpc_fmi2Terminate);
+
+    msgpack_object deserialized;
+
+    WriteToPipe(sbuf, deserialized);
+
+    /* print the deserialized object. */
+    msgpack_object_print(stdout, deserialized);
+    puts("");
+
+    fmi2Status status = (fmi2Status)deserialized.via.array.ptr[0].via.i64;
+
+    return status;
+}
+
 //fmi2Status fmi2Reset(fmi2Component c) {
 //	auto r = client->call("fmi2Reset").as<ReturnValue>();
 //	return handleReturnValue(r);
