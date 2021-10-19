@@ -4,11 +4,40 @@
 #include <tchar.h>
 #pragma comment(lib, "user32.lib")
 
+#include <iostream>
+
+using namespace std;
+
 #define BUF_SIZE 256
 TCHAR szName[] = TEXT("MyFileMappingObject");
 
 int _tmain()
 {
+    HANDLE inputMutex = INVALID_HANDLE_VALUE;
+    HANDLE outputMutex = INVALID_HANDLE_VALUE;
+
+    inputMutex = CreateMutex(
+        NULL,              // default security attributes
+        FALSE,             // initially not owned
+        "InputMutex");        // named mutex
+
+    if (inputMutex == NULL)
+    {
+        printf("CreateMutex InputMutex error: %d\n", GetLastError());
+        return 1;
+    }
+
+    outputMutex = CreateMutex(
+        NULL,              // default security attributes
+        FALSE,             // initially not owned
+        "OutputMutex");        // named mutex
+
+    if (outputMutex == NULL)
+    {
+        printf("CreateMutex OutputMutex error: %d\n", GetLastError());
+        return 1;
+    }
+
     HANDLE hMapFile;
     LPCTSTR pBuf;
 
@@ -40,7 +69,26 @@ int _tmain()
         return 1;
     }
 
+    cout << "Waiting for outputMutex... ";
+
+    DWORD outputWaitResult = WaitForSingleObject(
+        outputMutex, // handle to mutex
+        INFINITE);   // no time-out interval
+
+    cout << "OK" << endl;
+
+    cout << "Waiting for inputMutex... ";
+
+    DWORD inputWaitResult = WaitForSingleObject(
+        inputMutex, // handle to mutex
+        INFINITE);  // no time-out interval
+
+    cout << "OK" << endl;
+
     MessageBox(NULL, pBuf, TEXT("Process2"), MB_OK);
+
+    ReleaseMutex(inputMutex);
+    ReleaseMutex(outputMutex);
 
     UnmapViewOfFile(pBuf);
 

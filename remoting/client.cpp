@@ -3,13 +3,43 @@
 #include <conio.h>
 #include <tchar.h>
 
+#include <iostream>
+
+using namespace std;
+
 #include "fmi2Functions.h"
 
 #define BUF_SIZE 256
 TCHAR szName[] = TEXT("MyFileMappingObject");
 TCHAR szMsg[] = TEXT("Message from first process.");
 
+HANDLE inputMutex  = INVALID_HANDLE_VALUE;
+HANDLE outputMutex = INVALID_HANDLE_VALUE;
+
+
 const char* fmi2GetTypesPlatform() {
+
+    inputMutex = CreateMutex(
+        NULL,              // default security attributes
+        TRUE,              // initially owned
+        "InputMutex");     // named mutex
+
+    if (inputMutex == NULL)
+    {
+        printf("CreateMutex InputMutex error: %d\n", GetLastError());
+        return "error";
+    }
+
+    outputMutex = CreateMutex(
+        NULL,              // default security attributes
+        FALSE,             // initially not owned
+        "OutputMutex");    // named mutex
+
+    if (outputMutex == NULL)
+    {
+        printf("CreateMutex OutputMutex error: %d\n", GetLastError());
+        return "error";
+    }
 
     HANDLE hMapFile;
     LPCTSTR pBuf;
@@ -49,12 +79,24 @@ const char* fmi2GetTypesPlatform() {
 
     _getch();
 
+    ReleaseMutex(inputMutex);
+
+    cout << "Waiting for outputMutex... ";
+
+    DWORD outputWaitResult = WaitForSingleObject(
+        outputMutex, // handle to mutex
+        INFINITE);   // no time-out interval
+
+    cout << "OK" << endl;
+
     UnmapViewOfFile(pBuf);
 
     CloseHandle(hMapFile);
 
-    return fmi2TypesPlatform;
+    CloseHandle(inputMutex);
+    CloseHandle(outputMutex);
 
+    return fmi2TypesPlatform;
 }
 
 
