@@ -37,12 +37,47 @@ FMIInstance *m_instance = NULL;
 static std::list<LogMessage> s_logMessages;
 
 void logMessage(FMIInstance *instance, FMIStatus status, const char *category, const char *message) {
+    cout << message << endl;
     s_logMessages.push_back({ instance->name, (fmi2Status)status, category, message });
+}
+
+static void logFunctionCall(FMIInstance *instance, FMIStatus status, const char *message, ...) {
+
+    va_list args;
+    va_start(args, message);
+
+    vprintf(message, args);
+
+    va_end(args);
+
+    switch (status) {
+    case FMIOK:
+        printf(" -> OK\n");
+        break;
+    case FMIWarning:
+        printf(" -> Warning\n");
+        break;
+    case FMIDiscard:
+        printf(" -> Discard\n");
+        break;
+    case FMIError:
+        printf(" -> Error\n");
+        break;
+    case FMIFatal:
+        printf(" -> Fatal\n");
+        break;
+    case FMIPending:
+        printf(" -> Pending\n");
+        break;
+    default:
+        printf(" -> Unknown status (%d)\n", status);
+        break;
+    }
 }
 
 
 
-#define BUF_SIZE (1024*8)
+#define BUF_SIZE (1024*16)
 TCHAR szName[] = TEXT("MyFileMappingObject");
 
 
@@ -50,6 +85,8 @@ TCHAR szName[] = TEXT("MyFileMappingObject");
 
 
 int main(int argc, char *argv[]) {
+
+    cout << "Server started" << endl;
 
     HANDLE inputMutex = INVALID_HANDLE_VALUE;
     HANDLE outputMutex = INVALID_HANDLE_VALUE;
@@ -107,42 +144,115 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    cout << "Waiting for outputMutex... ";
+    bool receive = true;
 
-    DWORD outputWaitResult = WaitForSingleObject(
-        outputMutex, // handle to mutex
-        INFINITE);   // no time-out interval
+    while (receive) {
 
-    cout << "OK" << endl;
+        cout << "Waiting for inputMutex... ";
+        DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
+        cout << inputWaitResult << endl;
 
-    cout << "Waiting for inputMutex... ";
+        cout << "Releasing inputMutex... ";
+        BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+        cout << inputReleaseResult << endl;
 
-    DWORD inputWaitResult = WaitForSingleObject(
-        inputMutex, // handle to mutex
-        INFINITE);  // no time-out interval
+        rpcFunction rpc = *((rpcFunction *)&pBuf[1024 * 0]);
 
-    const char *libraryPath = argv[1]; // "C:\\Users\\tsr2\\Downloads\\BouncingBall\\binaries\\win64\\BouncingBall.dll";
+        switch (rpc) {
+        case rpc_fmi2Instantiate: {
 
-    rpcFunction rpc                 = *((rpcFunction *) &pBuf[1024 * 0]);
-    fmi2String  instanceName        = (fmi2String)      &pBuf[1024 * 1];
-    fmi2Type    fmuType             = *((fmi2Type *)    &pBuf[1024 * 2]);
-    fmi2String  fmuGUID             = (fmi2String)      &pBuf[1024 * 3];
-    fmi2String  fmuResourceLocation = (fmi2String)      &pBuf[1024 * 4];
-    fmi2Boolean visible             = *((fmi2Boolean *) &pBuf[1024 * 5]);
-    fmi2Boolean loggingOn           = *((fmi2Boolean *) &pBuf[1024 * 6]);
+            const char *libraryPath = argv[1];
 
-    m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, nullptr);
+            fmi2String  instanceName = (fmi2String)&pBuf[1024 * 1];
+            fmi2Type    fmuType = *((fmi2Type *)&pBuf[1024 * 2]);
+            fmi2String  fmuGUID = (fmi2String)&pBuf[1024 * 3];
+            fmi2String  fmuResourceLocation = (fmi2String)&pBuf[1024 * 4];
+            fmi2Boolean visible = *((fmi2Boolean *)&pBuf[1024 * 5]);
+            fmi2Boolean loggingOn = *((fmi2Boolean *)&pBuf[1024 * 6]);
 
-    fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
+            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, logFunctionCall);
 
-    memcpy(&pBuf[1024 * 7], &status, sizeof(fmi2Status));
+            fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
 
-    cout << "OK" << endl;
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
 
-    MessageBox(NULL, pBuf, TEXT("Process2"), MB_OK);
+            break;
+        }
+        case rpc_fmi2Terminate: {
+            fmi2Status status = FMI2Terminate(m_instance);
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            break;
+        }
+        case rpc_fmi2FreeInstance: {
+            FMI2FreeInstance(m_instance);
+            receive = false;
+            break;
+        }
+        case rpc_fmi2SetupExperiment: {
 
-    ReleaseMutex(inputMutex);
-    ReleaseMutex(outputMutex);
+            fmi2Boolean toleranceDefined = *((fmi2Boolean *)&pBuf[1024 * 1]);
+            fmi2Real tolerance           = *((fmi2Real    *)&pBuf[1024 * 2]);
+            fmi2Real startTime           = *((fmi2Real    *)&pBuf[1024 * 3]);
+            fmi2Boolean stopTimeDefined  = *((fmi2Boolean *)&pBuf[1024 * 4]);
+            fmi2Real stopTime            = *((fmi2Real    *)&pBuf[1024 * 5]);
+                                   
+            fmi2Status status = FMI2SetupExperiment(m_instance, toleranceDefined, tolerance, startTime, stopTimeDefined, stopTime);
+                     
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+
+            break;
+        }
+        case rpc_fmi2EnterInitializationMode: {
+            fmi2Status status = FMI2EnterInitializationMode(m_instance);
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            break;
+        }
+        case rpc_fmi2ExitInitializationMode: {
+            fmi2Status status = FMI2ExitInitializationMode(m_instance);
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            break;
+        }
+        case rpc_fmi2GetReal: {
+
+            fmi2ValueReference *vr =   (fmi2ValueReference*) &pBuf[1024 * 1];
+            size_t nvr             = *((size_t*)             &pBuf[1024 * 2]);
+            fmi2Real *value        =   (fmi2Real*)           &pBuf[1024 * 3];
+
+            fmi2Status status = FMI2GetReal(m_instance, vr, nvr, value);
+
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+
+            break; 
+        }              
+        case rpc_fmi2DoStep: {
+                                               
+            fmi2Real    currentCommunicationPoint        = *((fmi2Real    *)&pBuf[1024 * 1]);
+            fmi2Real    communicationStepSize            = *((fmi2Real    *)&pBuf[1024 * 2]);
+            fmi2Boolean noSetFMUStatePriorToCurrentPoint = *((fmi2Boolean *)&pBuf[1024 * 3]);
+                                   
+            fmi2Status status = FMI2DoStep(m_instance, currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint);
+                                   
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+                                   
+            break;
+        }
+        default: {
+            cout << "Unknown RPC: " << rpc << endl;
+            receive = false;
+            break;
+        }
+        }
+
+        //MessageBox(NULL, pBuf, TEXT("Process2"), MB_OK);
+
+        cout << "Waiting for outputMutex... ";
+        DWORD outputWaitResult = WaitForSingleObject(outputMutex, INFINITE);
+        cout << outputWaitResult << endl;
+
+        cout << "Releasing outputMutex... ";
+        BOOL outputReleaseResult = ReleaseMutex(outputMutex);
+        cout << outputReleaseResult << endl;
+    }
 
     UnmapViewOfFile(pBuf);
 

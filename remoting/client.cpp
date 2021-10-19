@@ -9,7 +9,7 @@ using namespace std;
 
 #include "fmi2Functions.h"
 
-#define BUF_SIZE (1024*8)
+#define BUF_SIZE (1024*16)
 TCHAR szName[] = TEXT("MyFileMappingObject");
 TCHAR szMsg[] = TEXT("Message from first process.");
 
@@ -18,11 +18,6 @@ HANDLE outputMutex = INVALID_HANDLE_VALUE;
 
 HANDLE hMapFile;
 LPTSTR pBuf;
-
-
-const char* fmi2GetTypesPlatform() {
-    return fmi2TypesPlatform;
-}
 
 
 //#include <windows.h> 
@@ -335,23 +330,48 @@ typedef enum {
 ////static fmi2CallbackLogger s_logger = nullptr;
 ////static fmi2ComponentEnvironment s_componentEnvironment = nullptr;
 ////static char *s_instanceName = nullptr;
-//
-//#define NOT_IMPLEMENTED return fmi2Error;
-//
-//
-///***************************************************
-//Types for Common Functions
-//****************************************************/
-//
-///* Inquire version numbers of header files and setting logging status */
-//const char* fmi2GetTypesPlatform() {
-//    return fmi2TypesPlatform;
-//}
-//
-//const char* fmi2GetVersion() {
-//    return fmi2Version;
-//}
-//
+
+#define NOT_IMPLEMENTED return fmi2Error;
+
+
+static fmi2Status makeRPC(rpcFunction rpc) {
+
+    memcpy(&pBuf[1024 * 0], &rpc, sizeof(rpcFunction));
+
+    cout << "Releasing inputMutex... ";
+    BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+    cout << inputReleaseResult << endl;
+
+    cout << "Waiting for inputMutex... ";
+    DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
+    cout << inputWaitResult << endl;
+
+    fmi2Status status = *((fmi2Status*)&pBuf[1024 * 10]);
+
+    cout << "Releasing outputMutex... ";
+    BOOL outputReleaseResult = ReleaseMutex(outputMutex);
+    cout << outputReleaseResult << endl;
+
+    cout << "Waiting for outputMutex... ";
+    DWORD outputWaitResult = WaitForSingleObject(outputMutex, INFINITE);
+    cout << outputWaitResult << endl;
+
+    return status;
+}
+
+/***************************************************
+Types for Common Functions
+****************************************************/
+
+/* Inquire version numbers of header files and setting logging status */
+const char* fmi2GetTypesPlatform() {
+    return fmi2TypesPlatform;
+}
+
+const char* fmi2GetVersion() {
+    return fmi2Version;
+}
+
 ////static void forwardLogMessages(const list<LogMessage> &logMessages) {
 ////	for (auto it = logMessages.begin(); it != logMessages.end(); it++) {
 ////		auto &m = *it;
@@ -392,12 +412,12 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     if (inputMutex == NULL)
     {
         printf("CreateMutex InputMutex error: %d\n", GetLastError());
-        return "error";
+        return NULL;
     }
 
     outputMutex = CreateMutex(
         NULL,              // default security attributes
-        FALSE,             // initially not owned
+        TRUE,             // initially not owned
         "OutputMutex");    // named mutex
 
     if (outputMutex == NULL)
@@ -418,7 +438,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     {
         _tprintf(TEXT("Could not create file mapping object (%d).\n"),
             GetLastError());
-        return "error";
+        return NULL;
     }
     pBuf = (LPTSTR)MapViewOfFile(hMapFile,   // handle to map object
         FILE_MAP_ALL_ACCESS, // read/write permission
@@ -433,15 +453,9 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
         CloseHandle(hMapFile);
 
-        return "error";
+        return NULL;
     }
 
-
-    //CopyMemory((PVOID)pBuf, szMsg, (_tcslen(szMsg) * sizeof(TCHAR)));
-
-    rpcFunction rpc = rpc_fmi2Instantiate;
-
-    memcpy(&pBuf[1024 * 0], &rpc, sizeof(rpcFunction));
     strncpy(&pBuf[1024 * 1], instanceName, 1024);
     memcpy(&pBuf[1024 * 2], &fmuType, sizeof(fmi2Type));
     strncpy(&pBuf[1024 * 3], fmuGUID, 1024);
@@ -449,20 +463,10 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     memcpy(&pBuf[1024 * 5], &visible, sizeof(fmi2Boolean));
     memcpy(&pBuf[1024 * 6], &loggingOn, sizeof(fmi2Boolean));
 
-    _getch();
+    //_getch();
 
-    ReleaseMutex(inputMutex);
+    fmi2Status status = makeRPC(rpc_fmi2Instantiate);
 
-    cout << "Waiting for outputMutex... ";
-
-    DWORD outputWaitResult = WaitForSingleObject(
-        outputMutex, // handle to mutex
-        INFINITE);   // no time-out interval
-
-    cout << "OK" << endl;
-
-    fmi2Status status = *((fmi2Status*)&pBuf[1024 * 7]);
-    
     if (status > fmi2Warning) {
         return NULL;
     }
@@ -665,144 +669,96 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
 void fmi2FreeInstance(fmi2Component c) {
 
+    fmi2Status status = makeRPC(rpc_fmi2FreeInstance);
+
     UnmapViewOfFile(pBuf);
 
     CloseHandle(hMapFile);
 
     CloseHandle(inputMutex);
     CloseHandle(outputMutex);
-
-//    msgpack_sbuffer sbuf;
-//    msgpack_sbuffer_init(&sbuf);
-//
-//    msgpack_packer pk;
-//    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-//
-//    msgpack_pack_array(&pk, 1);
-//    msgpack_pack_int(&pk, rpc_fmi2FreeInstance);
-//
-//    msgpack_object deserialized;
-//
-//    WriteToPipe(sbuf, deserialized);
-//
-//    // Close the pipe handle so the child process stops reading. 
-//    if (!CloseHandle(g_hChildStd_IN_Wr))
-//        ErrorExit(TEXT("StdInWr CloseHandle"));
 }
 
-///* Enter and exit initialization mode, terminate and reset */
-//fmi2Status fmi2SetupExperiment(fmi2Component c, fmi2Boolean toleranceDefined, fmi2Real tolerance, fmi2Real startTime, fmi2Boolean stopTimeDefined, fmi2Real stopTime) {
-//
-//    msgpack_sbuffer sbuf;
-//    msgpack_sbuffer_init(&sbuf);
-//
-//    msgpack_packer pk;
-//    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-//
-//    msgpack_pack_array(&pk, 6);
-//    msgpack_pack_int(&pk, rpc_fmi2SetupExperiment);
-//    msgpack_pack_int(&pk, toleranceDefined);
-//    msgpack_pack_double(&pk, tolerance);
-//    msgpack_pack_double(&pk, startTime);
-//    msgpack_pack_int(&pk, stopTimeDefined);
-//    msgpack_pack_double(&pk, stopTime);
-//
-//    msgpack_object deserialized;
-//
-//    WriteToPipe(sbuf, deserialized);
-//
-//    RETURN_FMI2STATUS;
-//}
-//
-//fmi2Status fmi2EnterInitializationMode(fmi2Component c) {
-//
-//    msgpack_sbuffer sbuf;
-//    msgpack_sbuffer_init(&sbuf);
-//
-//    msgpack_packer pk;
-//    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-//
-//    msgpack_pack_array(&pk, 1);
-//    msgpack_pack_int(&pk, rpc_fmi2EnterInitializationMode);
-//
-//    msgpack_object deserialized;
-//
-//    WriteToPipe(sbuf, deserialized);
-//
-//    RETURN_FMI2STATUS;
-//}
-//
-//fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
-//    
-//    msgpack_sbuffer sbuf;
-//    msgpack_sbuffer_init(&sbuf);
-//
-//    msgpack_packer pk;
-//    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-//
-//    msgpack_pack_array(&pk, 1);
-//    msgpack_pack_int(&pk, rpc_fmi2ExitInitializationMode);
-//
-//    msgpack_object deserialized;
-//
-//    WriteToPipe(sbuf, deserialized);
-//
-//    RETURN_FMI2STATUS;
-//}
-//
-//fmi2Status fmi2Terminate(fmi2Component c) {
-//
-//    msgpack_sbuffer sbuf;
-//    msgpack_sbuffer_init(&sbuf);
-//
-//    msgpack_packer pk;
-//    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-//
-//    msgpack_pack_array(&pk, 1);
-//    msgpack_pack_int(&pk, rpc_fmi2Terminate);
-//
-//    msgpack_object deserialized;
-//
-//    WriteToPipe(sbuf, deserialized);
-//
-//    RETURN_FMI2STATUS;
-//}
-//
-//fmi2Status fmi2Reset(fmi2Component c) {
-//    NOT_IMPLEMENTED
-//}
-//
-///* Getting and setting variable values */
-//fmi2Status fmi2GetReal(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Real value[]) {
-//    
-//    msgpack_sbuffer sbuf;
-//    msgpack_sbuffer_init(&sbuf);
-//
-//    msgpack_packer pk;
-//    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-//
-//    msgpack_pack_array(&pk, 2);
-//    msgpack_pack_int(&pk, rpc_fmi2GetReal);
-//    msgpack_pack_array(&pk, nvr);
-//    for (int i = 0; i < nvr; i++) {
-//        msgpack_pack_uint32(&pk, vr[i]);
-//    }
-//
-//    msgpack_object deserialized;
-//
-//    WriteToPipe(sbuf, deserialized);
-//
-//    auto v = deserialized.via.array.ptr[2].via.array;
-//
-//    // TODO: assert nvr == v.size
-//
-//    for (int i = 0; i < v.size; i++) {
-//        value[i] = v.ptr[i].via.f64;
-//    }
-//
-//    RETURN_FMI2STATUS;
-//}
-//
+/* Enter and exit initialization mode, terminate and reset */
+fmi2Status fmi2SetupExperiment(fmi2Component c, fmi2Boolean toleranceDefined, fmi2Real tolerance, fmi2Real startTime, fmi2Boolean stopTimeDefined, fmi2Real stopTime) {
+
+    memcpy(&pBuf[1024 * 1], &toleranceDefined, sizeof(fmi2Boolean));
+    memcpy(&pBuf[1024 * 2], &tolerance, sizeof(fmi2Real));
+    memcpy(&pBuf[1024 * 3], &startTime, sizeof(fmi2Real));
+    memcpy(&pBuf[1024 * 4], &stopTimeDefined, sizeof(fmi2Boolean));
+    memcpy(&pBuf[1024 * 5], &stopTime, sizeof(fmi2Real));
+
+    fmi2Status status = makeRPC(rpc_fmi2SetupExperiment);
+
+    return status;
+}
+
+fmi2Status fmi2EnterInitializationMode(fmi2Component c) {
+
+    fmi2Status status = makeRPC(rpc_fmi2EnterInitializationMode);
+
+    return status;
+}
+
+fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
+    
+    fmi2Status status = makeRPC(rpc_fmi2ExitInitializationMode);
+
+    return status;
+}
+
+fmi2Status fmi2Terminate(fmi2Component c) {
+
+    fmi2Status status = makeRPC(rpc_fmi2Terminate);
+
+    return status;
+}
+
+fmi2Status fmi2Reset(fmi2Component c) {
+    NOT_IMPLEMENTED
+}
+
+/* Getting and setting variable values */
+fmi2Status fmi2GetReal(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Real value[]) {
+    
+    memcpy(&pBuf[1024 * 1], vr, sizeof(fmi2ValueReference) * nvr);
+    memcpy(&pBuf[1024 * 2], &nvr, sizeof(size_t));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetReal);
+
+    memcpy(value, &pBuf[1024 * 3], sizeof(fmi2Real) * nvr);
+
+    return status;
+    
+    //
+    //msgpack_sbuffer sbuf;
+    //msgpack_sbuffer_init(&sbuf);
+
+    //msgpack_packer pk;
+    //msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
+
+    //msgpack_pack_array(&pk, 2);
+    //msgpack_pack_int(&pk, rpc_fmi2GetReal);
+    //msgpack_pack_array(&pk, nvr);
+    //for (int i = 0; i < nvr; i++) {
+    //    msgpack_pack_uint32(&pk, vr[i]);
+    //}
+
+    //msgpack_object deserialized;
+
+    //WriteToPipe(sbuf, deserialized);
+
+    //auto v = deserialized.via.array.ptr[2].via.array;
+
+    //// TODO: assert nvr == v.size
+
+    //for (int i = 0; i < v.size; i++) {
+    //    value[i] = v.ptr[i].via.f64;
+    //}
+
+    //RETURN_FMI2STATUS;
+}
+
 //fmi2Status fmi2GetInteger(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, fmi2Integer value[]) {
 //    NOT_IMPLEMENTED
 //}
@@ -920,28 +876,18 @@ void fmi2FreeInstance(fmi2Component c) {
 //fmi2Status fmi2GetRealOutputDerivatives(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2Integer order[], fmi2Real value[]) {
 //    NOT_IMPLEMENTED
 //}
-//
-//fmi2Status fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2Real communicationStepSize, fmi2Boolean noSetFMUStatePriorToCurrentPoint) {
-//    
-//    msgpack_sbuffer sbuf;
-//    msgpack_sbuffer_init(&sbuf);
-//
-//    msgpack_packer pk;
-//    msgpack_packer_init(&pk, &sbuf, msgpack_sbuffer_write);
-//
-//    msgpack_pack_array(&pk, 4);
-//    msgpack_pack_int(&pk, rpc_fmi2DoStep);
-//    msgpack_pack_double(&pk, currentCommunicationPoint);
-//    msgpack_pack_double(&pk, communicationStepSize);
-//    msgpack_pack_int(&pk, noSetFMUStatePriorToCurrentPoint);
-//
-//    msgpack_object deserialized;
-//
-//    WriteToPipe(sbuf, deserialized);
-//
-//    RETURN_FMI2STATUS;
-//}
-//
+
+fmi2Status fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2Real communicationStepSize, fmi2Boolean noSetFMUStatePriorToCurrentPoint) {
+    
+    memcpy(&pBuf[1024 * 1], &currentCommunicationPoint, sizeof(fmi2Real));
+    memcpy(&pBuf[1024 * 2], &communicationStepSize, sizeof(fmi2Real));
+    memcpy(&pBuf[1024 * 3], &noSetFMUStatePriorToCurrentPoint, sizeof(fmi2Boolean));
+
+    fmi2Status status = makeRPC(rpc_fmi2DoStep);
+
+    return status;
+}
+
 //fmi2Status fmi2CancelStep(fmi2Component c) {
 //    NOT_IMPLEMENTED
 //}
