@@ -88,19 +88,34 @@ int main(int argc, char *argv[]) {
 
     cout << "Server started" << endl;
 
-    HANDLE inputMutex = INVALID_HANDLE_VALUE;
+    HANDLE inputReady = INVALID_HANDLE_VALUE;
+    HANDLE outputReady = INVALID_HANDLE_VALUE;
+
+    inputReady = CreateEvent(
+        NULL,           // default security attributes
+        FALSE,          // auto-reset event object
+        FALSE,          // initial state is nonsignaled
+        "inputReady");  // unnamed object
+
+    outputReady = CreateEvent(
+        NULL,           // default security attributes
+        FALSE,          // auto-reset event object
+        FALSE,          // initial state is nonsignaled
+        "outputReady"); // unnamed object
+
+    //HANDLE inputMutex = INVALID_HANDLE_VALUE;
     //HANDLE outputMutex = INVALID_HANDLE_VALUE;
 
-    inputMutex = CreateMutex(
-        NULL,              // default security attributes
-        FALSE,             // initially not owned
-        "InputMutex");        // named mutex
+    //inputMutex = CreateMutex(
+    //    NULL,              // default security attributes
+    //    FALSE,             // initially not owned
+    //    "InputMutex");        // named mutex
 
-    if (inputMutex == NULL)
-    {
-        printf("CreateMutex InputMutex error: %d\n", GetLastError());
-        return 1;
-    }
+    //if (inputMutex == NULL)
+    //{
+    //    printf("CreateMutex InputMutex error: %d\n", GetLastError());
+    //    return 1;
+    //}
 
     //outputMutex = CreateMutex(
     //    NULL,              // default security attributes
@@ -148,18 +163,22 @@ int main(int argc, char *argv[]) {
 
     while (receive) {
 
-        cout << "Waiting for inputMutex... ";
-        DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
-        cout << inputWaitResult << endl;
+        //cout << "Waiting for inputReady... ";
+        DWORD dwEvent = WaitForSingleObject(inputReady, INFINITE);
+        //cout << dwEvent << endl;
 
-        fmi2Status status = *((fmi2Status*)&pBuf[1024 * 10]);
+        //cout << "Waiting for inputMutex... ";
+        //DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
+        //cout << inputWaitResult << endl;
 
-        if (status != fmi2Discard) {
-            cout << "Releasing inputMutex... ";
-            BOOL inputReleaseResult = ReleaseMutex(inputMutex);
-            cout << inputReleaseResult << endl;
-            continue;
-        }
+        //fmi2Status status = *((fmi2Status*)&pBuf[1024 * 10]);
+
+        //if (status != fmi2Discard) {
+        //    cout << "Releasing inputMutex... ";
+        //    BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+        //    cout << inputReleaseResult << endl;
+        //    continue;
+        //}
 
         rpcFunction rpc = *((rpcFunction *)&pBuf[1024 * 0]);
 
@@ -175,7 +194,7 @@ int main(int argc, char *argv[]) {
             fmi2Boolean visible = *((fmi2Boolean *)&pBuf[1024 * 5]);
             fmi2Boolean loggingOn = *((fmi2Boolean *)&pBuf[1024 * 6]);
 
-            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, NULL/*logFunctionCall*/);
+            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, NULL /*logFunctionCall*/);
 
             fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
 
@@ -250,9 +269,15 @@ int main(int argc, char *argv[]) {
         }
         }
 
+        //cout << "SetEvent(outputReady)" << endl;
+        if (!SetEvent(outputReady)) {
+            printf("SetEvent failed (%d)\n", GetLastError());
+            exit(1);
+        }
+
         // cout << "Releasing inputMutex... ";
-        BOOL inputReleaseResult = ReleaseMutex(inputMutex);
-        cout << inputReleaseResult << endl;
+        //BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+        //cout << inputReleaseResult << endl;
 
         //MessageBox(NULL, pBuf, TEXT("Process2"), MB_OK);
 

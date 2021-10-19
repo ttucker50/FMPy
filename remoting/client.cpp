@@ -13,12 +13,14 @@ using namespace std;
 TCHAR szName[] = TEXT("MyFileMappingObject");
 TCHAR szMsg[] = TEXT("Message from first process.");
 
-HANDLE inputMutex  = INVALID_HANDLE_VALUE;
+//HANDLE inputMutex  = INVALID_HANDLE_VALUE;
 //HANDLE outputMutex = INVALID_HANDLE_VALUE;
+
+HANDLE inputReady = INVALID_HANDLE_VALUE;
+HANDLE outputReady = INVALID_HANDLE_VALUE;
 
 HANDLE hMapFile;
 LPTSTR pBuf;
-
 
 //#include <windows.h> 
 //#include <tchar.h>
@@ -341,18 +343,34 @@ static fmi2Status makeRPC(rpcFunction rpc) {
     memcpy(&pBuf[1024 * 0], &rpc, sizeof(rpcFunction));
     memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
 
-    while (status == fmi2Discard) {
-        
-        // cout << "Releasing inputMutex... ";
-        BOOL inputReleaseResult = ReleaseMutex(inputMutex);
-        // cout << inputReleaseResult << endl;
+    //cout << "SetEvent(inputReady)" << endl;
+    if (!SetEvent(inputReady)) {
+        printf("SetEvent failed (%d)\n", GetLastError());
+        exit(1);
+    }
 
-        // cout << "Waiting for inputMutex... ";
-        DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
-        // cout << inputWaitResult << endl;
+    //cout << "Waiting for outputReady... ";
+    DWORD dwEvent = WaitForSingleObject(outputReady, INFINITE);
+    //cout << dwEvent << endl;
+
+    //dwEvent = WaitForMultipleObjects(
+    //    2,           // number of objects in array
+    //    ghEvents,     // array of objects
+    //    FALSE,       // wait for any object
+    //    5000);       // five-second wait
+
+    //while (status == fmi2Discard) {
+    //    
+    //    // cout << "Releasing inputMutex... ";
+    //    //BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+    //    // cout << inputReleaseResult << endl;
+
+    //    // cout << "Waiting for inputMutex... ";
+    //    //DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
+    //    // cout << inputWaitResult << endl;
 
         status = *((fmi2Status*)&pBuf[1024 * 10]);
-    }
+    //}
 
 
     //cout << "Releasing outputMutex... ";
@@ -414,16 +432,28 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     s_logger = functions->logger;
     s_componentEnvironment = functions->componentEnvironment;
 
-    inputMutex = CreateMutex(
-        NULL,              // default security attributes
-        TRUE,              // initially owned
-        "InputMutex");     // named mutex
+    inputReady = CreateEvent(
+        NULL,           // default security attributes
+        FALSE,          // auto-reset event object
+        FALSE,          // initial state is nonsignaled
+        "inputReady");  // unnamed object
 
-    if (inputMutex == NULL)
-    {
-        printf("CreateMutex InputMutex error: %d\n", GetLastError());
-        return NULL;
-    }
+    outputReady = CreateEvent(
+        NULL,           // default security attributes
+        FALSE,          // auto-reset event object
+        FALSE,          // initial state is nonsignaled
+        "outputReady"); // unnamed object
+
+    //inputMutex = CreateMutex(
+    //    NULL,              // default security attributes
+    //    TRUE,              // initially owned
+    //    "InputMutex");     // named mutex
+
+    //if (inputMutex == NULL)
+    //{
+    //    printf("CreateMutex InputMutex error: %d\n", GetLastError());
+    //    return NULL;
+    //}
 
     //outputMutex = CreateMutex(
     //    NULL,              // default security attributes
@@ -679,7 +709,7 @@ void fmi2FreeInstance(fmi2Component c) {
 
     CloseHandle(hMapFile);
 
-    CloseHandle(inputMutex);
+    //CloseHandle(inputMutex);
     //CloseHandle(outputMutex);
 }
 
