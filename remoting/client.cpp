@@ -14,7 +14,7 @@ TCHAR szName[] = TEXT("MyFileMappingObject");
 TCHAR szMsg[] = TEXT("Message from first process.");
 
 HANDLE inputMutex  = INVALID_HANDLE_VALUE;
-HANDLE outputMutex = INVALID_HANDLE_VALUE;
+//HANDLE outputMutex = INVALID_HANDLE_VALUE;
 
 HANDLE hMapFile;
 LPTSTR pBuf;
@@ -336,25 +336,32 @@ typedef enum {
 
 static fmi2Status makeRPC(rpcFunction rpc) {
 
+    fmi2Status status = fmi2Discard;
+
     memcpy(&pBuf[1024 * 0], &rpc, sizeof(rpcFunction));
+    memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
 
-    cout << "Releasing inputMutex... ";
-    BOOL inputReleaseResult = ReleaseMutex(inputMutex);
-    cout << inputReleaseResult << endl;
+    while (status == fmi2Discard) {
+        
+        cout << "Releasing inputMutex... ";
+        BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+        cout << inputReleaseResult << endl;
 
-    cout << "Waiting for inputMutex... ";
-    DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
-    cout << inputWaitResult << endl;
+        cout << "Waiting for inputMutex... ";
+        DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
+        cout << inputWaitResult << endl;
 
-    fmi2Status status = *((fmi2Status*)&pBuf[1024 * 10]);
+        status = *((fmi2Status*)&pBuf[1024 * 10]);
+    }
 
-    cout << "Releasing outputMutex... ";
-    BOOL outputReleaseResult = ReleaseMutex(outputMutex);
-    cout << outputReleaseResult << endl;
 
-    cout << "Waiting for outputMutex... ";
-    DWORD outputWaitResult = WaitForSingleObject(outputMutex, INFINITE);
-    cout << outputWaitResult << endl;
+    //cout << "Releasing outputMutex... ";
+    //BOOL outputReleaseResult = ReleaseMutex(outputMutex);
+    //cout << outputReleaseResult << endl;
+
+    //cout << "Waiting for outputMutex... ";
+    //DWORD outputWaitResult = WaitForSingleObject(outputMutex, INFINITE);
+    //cout << outputWaitResult << endl;
 
     return status;
 }
@@ -415,16 +422,16 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
         return NULL;
     }
 
-    outputMutex = CreateMutex(
-        NULL,              // default security attributes
-        TRUE,             // initially not owned
-        "OutputMutex");    // named mutex
+    //outputMutex = CreateMutex(
+    //    NULL,              // default security attributes
+    //    TRUE,             // initially not owned
+    //    "OutputMutex");    // named mutex
 
-    if (outputMutex == NULL)
-    {
-        printf("CreateMutex OutputMutex error: %d\n", GetLastError());
-        return "error";
-    }
+    //if (outputMutex == NULL)
+    //{
+    //    printf("CreateMutex OutputMutex error: %d\n", GetLastError());
+    //    return "error";
+    //}
 
     hMapFile = CreateFileMapping(
         INVALID_HANDLE_VALUE,    // use paging file
@@ -676,7 +683,7 @@ void fmi2FreeInstance(fmi2Component c) {
     CloseHandle(hMapFile);
 
     CloseHandle(inputMutex);
-    CloseHandle(outputMutex);
+    //CloseHandle(outputMutex);
 }
 
 /* Enter and exit initialization mode, terminate and reset */

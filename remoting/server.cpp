@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
     cout << "Server started" << endl;
 
     HANDLE inputMutex = INVALID_HANDLE_VALUE;
-    HANDLE outputMutex = INVALID_HANDLE_VALUE;
+    //HANDLE outputMutex = INVALID_HANDLE_VALUE;
 
     inputMutex = CreateMutex(
         NULL,              // default security attributes
@@ -102,16 +102,16 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    outputMutex = CreateMutex(
-        NULL,              // default security attributes
-        FALSE,             // initially not owned
-        "OutputMutex");        // named mutex
+    //outputMutex = CreateMutex(
+    //    NULL,              // default security attributes
+    //    FALSE,             // initially not owned
+    //    "OutputMutex");        // named mutex
 
-    if (outputMutex == NULL)
-    {
-        printf("CreateMutex OutputMutex error: %d\n", GetLastError());
-        return 1;
-    }
+    //if (outputMutex == NULL)
+    //{
+    //    printf("CreateMutex OutputMutex error: %d\n", GetLastError());
+    //    return 1;
+    //}
 
     HANDLE hMapFile;
     LPTSTR pBuf;
@@ -152,9 +152,14 @@ int main(int argc, char *argv[]) {
         DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
         cout << inputWaitResult << endl;
 
-        cout << "Releasing inputMutex... ";
-        BOOL inputReleaseResult = ReleaseMutex(inputMutex);
-        cout << inputReleaseResult << endl;
+        fmi2Status status = *((fmi2Status*)&pBuf[1024 * 10]);
+
+        if (status != fmi2Discard) {
+            cout << "Releasing inputMutex... ";
+            BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+            cout << inputReleaseResult << endl;
+            continue;
+        }
 
         rpcFunction rpc = *((rpcFunction *)&pBuf[1024 * 0]);
 
@@ -185,6 +190,8 @@ int main(int argc, char *argv[]) {
         }
         case rpc_fmi2FreeInstance: {
             FMI2FreeInstance(m_instance);
+            fmi2Status status = fmi2OK;
+            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
             receive = false;
             break;
         }
@@ -243,15 +250,19 @@ int main(int argc, char *argv[]) {
         }
         }
 
+        cout << "Releasing inputMutex... ";
+        BOOL inputReleaseResult = ReleaseMutex(inputMutex);
+        cout << inputReleaseResult << endl;
+
         //MessageBox(NULL, pBuf, TEXT("Process2"), MB_OK);
 
-        cout << "Waiting for outputMutex... ";
-        DWORD outputWaitResult = WaitForSingleObject(outputMutex, INFINITE);
-        cout << outputWaitResult << endl;
+        //cout << "Waiting for outputMutex... ";
+        //DWORD outputWaitResult = WaitForSingleObject(outputMutex, INFINITE);
+        //cout << outputWaitResult << endl;
 
-        cout << "Releasing outputMutex... ";
-        BOOL outputReleaseResult = ReleaseMutex(outputMutex);
-        cout << outputReleaseResult << endl;
+        //cout << "Releasing outputMutex... ";
+        //BOOL outputReleaseResult = ReleaseMutex(outputMutex);
+        //cout << outputReleaseResult << endl;
     }
 
     UnmapViewOfFile(pBuf);
