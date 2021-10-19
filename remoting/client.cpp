@@ -343,13 +343,13 @@ static fmi2Status makeRPC(rpcFunction rpc) {
 
     while (status == fmi2Discard) {
         
-        cout << "Releasing inputMutex... ";
+        // cout << "Releasing inputMutex... ";
         BOOL inputReleaseResult = ReleaseMutex(inputMutex);
-        cout << inputReleaseResult << endl;
+        // cout << inputReleaseResult << endl;
 
-        cout << "Waiting for inputMutex... ";
+        // cout << "Waiting for inputMutex... ";
         DWORD inputWaitResult = WaitForSingleObject(inputMutex, INFINITE);
-        cout << inputWaitResult << endl;
+        // cout << inputWaitResult << endl;
 
         status = *((fmi2Status*)&pBuf[1024 * 10]);
     }

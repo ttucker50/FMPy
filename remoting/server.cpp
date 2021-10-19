@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
             fmi2Boolean visible = *((fmi2Boolean *)&pBuf[1024 * 5]);
             fmi2Boolean loggingOn = *((fmi2Boolean *)&pBuf[1024 * 6]);
 
-            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, logFunctionCall);
+            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, NULL/*logFunctionCall*/);
 
             fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
 
@@ -250,7 +250,7 @@ int main(int argc, char *argv[]) {
         }
         }
 
-        cout << "Releasing inputMutex... ";
+        // cout << "Releasing inputMutex... ";
         BOOL inputReleaseResult = ReleaseMutex(inputMutex);
         cout << inputReleaseResult << endl;
 
