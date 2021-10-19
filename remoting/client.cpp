@@ -9,93 +9,18 @@ using namespace std;
 
 #include "fmi2Functions.h"
 
-#define BUF_SIZE 256
+#define BUF_SIZE (1024*8)
 TCHAR szName[] = TEXT("MyFileMappingObject");
 TCHAR szMsg[] = TEXT("Message from first process.");
 
 HANDLE inputMutex  = INVALID_HANDLE_VALUE;
 HANDLE outputMutex = INVALID_HANDLE_VALUE;
 
+HANDLE hMapFile;
+LPTSTR pBuf;
+
 
 const char* fmi2GetTypesPlatform() {
-
-    inputMutex = CreateMutex(
-        NULL,              // default security attributes
-        TRUE,              // initially owned
-        "InputMutex");     // named mutex
-
-    if (inputMutex == NULL)
-    {
-        printf("CreateMutex InputMutex error: %d\n", GetLastError());
-        return "error";
-    }
-
-    outputMutex = CreateMutex(
-        NULL,              // default security attributes
-        FALSE,             // initially not owned
-        "OutputMutex");    // named mutex
-
-    if (outputMutex == NULL)
-    {
-        printf("CreateMutex OutputMutex error: %d\n", GetLastError());
-        return "error";
-    }
-
-    HANDLE hMapFile;
-    LPCTSTR pBuf;
-
-    hMapFile = CreateFileMapping(
-        INVALID_HANDLE_VALUE,    // use paging file
-        NULL,                    // default security
-        PAGE_READWRITE,          // read/write access
-        0,                       // maximum object size (high-order DWORD)
-        BUF_SIZE,                // maximum object size (low-order DWORD)
-        szName);                 // name of mapping object
-
-    if (hMapFile == NULL)
-    {
-        _tprintf(TEXT("Could not create file mapping object (%d).\n"),
-            GetLastError());
-        return "error";
-    }
-    pBuf = (LPTSTR)MapViewOfFile(hMapFile,   // handle to map object
-        FILE_MAP_ALL_ACCESS, // read/write permission
-        0,
-        0,
-        BUF_SIZE);
-
-    if (pBuf == NULL)
-    {
-        _tprintf(TEXT("Could not map view of file (%d).\n"),
-            GetLastError());
-
-        CloseHandle(hMapFile);
-
-        return "error";
-    }
-
-
-    CopyMemory((PVOID)pBuf, szMsg, (_tcslen(szMsg) * sizeof(TCHAR)));
-
-    _getch();
-
-    ReleaseMutex(inputMutex);
-
-    cout << "Waiting for outputMutex... ";
-
-    DWORD outputWaitResult = WaitForSingleObject(
-        outputMutex, // handle to mutex
-        INFINITE);   // no time-out interval
-
-    cout << "OK" << endl;
-
-    UnmapViewOfFile(pBuf);
-
-    CloseHandle(hMapFile);
-
-    CloseHandle(inputMutex);
-    CloseHandle(outputMutex);
-
     return fmi2TypesPlatform;
 }
 
@@ -113,18 +38,18 @@ const char* fmi2GetTypesPlatform() {
 //
 //#include "fmi2Functions.h"
 //
-//typedef enum {
-//    rpc_fmi2GetTypesPlatform,
-//    rpc_fmi2GetVersion,
-//    rpc_fmi2Instantiate,
-//    rpc_fmi2SetupExperiment,
-//    rpc_fmi2EnterInitializationMode,
-//    rpc_fmi2ExitInitializationMode,
-//    rpc_fmi2GetReal,
-//    rpc_fmi2DoStep,
-//    rpc_fmi2Terminate,
-//    rpc_fmi2FreeInstance,
-//} rpcFunction;
+typedef enum {
+    rpc_fmi2GetTypesPlatform,
+    rpc_fmi2GetVersion,
+    rpc_fmi2Instantiate,
+    rpc_fmi2SetupExperiment,
+    rpc_fmi2EnterInitializationMode,
+    rpc_fmi2ExitInitializationMode,
+    rpc_fmi2GetReal,
+    rpc_fmi2DoStep,
+    rpc_fmi2Terminate,
+    rpc_fmi2FreeInstance,
+} rpcFunction;
 //
 //fmi2CallbackLogger s_logger = NULL;
 //fmi2ComponentEnvironment s_componentEnvironment = NULL;
@@ -455,9 +380,95 @@ const char* fmi2GetTypesPlatform() {
 //        s_logger(s_componentEnvironment, instanceName, (fmi2Status)status, category, message);
 //    }
 //}
-//
-///* Creation and destruction of FMU instances and setting debug status */
-//fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
+
+/* Creation and destruction of FMU instances and setting debug status */
+fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
+
+    inputMutex = CreateMutex(
+        NULL,              // default security attributes
+        TRUE,              // initially owned
+        "InputMutex");     // named mutex
+
+    if (inputMutex == NULL)
+    {
+        printf("CreateMutex InputMutex error: %d\n", GetLastError());
+        return "error";
+    }
+
+    outputMutex = CreateMutex(
+        NULL,              // default security attributes
+        FALSE,             // initially not owned
+        "OutputMutex");    // named mutex
+
+    if (outputMutex == NULL)
+    {
+        printf("CreateMutex OutputMutex error: %d\n", GetLastError());
+        return "error";
+    }
+
+    hMapFile = CreateFileMapping(
+        INVALID_HANDLE_VALUE,    // use paging file
+        NULL,                    // default security
+        PAGE_READWRITE,          // read/write access
+        0,                       // maximum object size (high-order DWORD)
+        BUF_SIZE,                // maximum object size (low-order DWORD)
+        szName);                 // name of mapping object
+
+    if (hMapFile == NULL)
+    {
+        _tprintf(TEXT("Could not create file mapping object (%d).\n"),
+            GetLastError());
+        return "error";
+    }
+    pBuf = (LPTSTR)MapViewOfFile(hMapFile,   // handle to map object
+        FILE_MAP_ALL_ACCESS, // read/write permission
+        0,
+        0,
+        BUF_SIZE);
+
+    if (pBuf == NULL)
+    {
+        _tprintf(TEXT("Could not map view of file (%d).\n"),
+            GetLastError());
+
+        CloseHandle(hMapFile);
+
+        return "error";
+    }
+
+
+    //CopyMemory((PVOID)pBuf, szMsg, (_tcslen(szMsg) * sizeof(TCHAR)));
+
+    rpcFunction rpc = rpc_fmi2Instantiate;
+
+    memcpy(&pBuf[1024 * 0], &rpc, sizeof(rpcFunction));
+    strncpy(&pBuf[1024 * 1], instanceName, 1024);
+    memcpy(&pBuf[1024 * 2], &fmuType, sizeof(fmi2Type));
+    strncpy(&pBuf[1024 * 3], fmuGUID, 1024);
+    strncpy(&pBuf[1024 * 4], fmuResourceLocation, 1024);
+    memcpy(&pBuf[1024 * 5], &visible, sizeof(fmi2Boolean));
+    memcpy(&pBuf[1024 * 6], &loggingOn, sizeof(fmi2Boolean));
+
+    _getch();
+
+    ReleaseMutex(inputMutex);
+
+    cout << "Waiting for outputMutex... ";
+
+    DWORD outputWaitResult = WaitForSingleObject(
+        outputMutex, // handle to mutex
+        INFINITE);   // no time-out interval
+
+    cout << "OK" << endl;
+
+    fmi2Status status = *((fmi2Status*)&pBuf[1024 * 7]);
+    
+    if (status > fmi2Warning) {
+        return NULL;
+    }
+
+    return (fmi2Component)0x1;
+
 //    
 //    s_logger = functions->logger;
 //    s_componentEnvironment = functions->componentEnvironment;
@@ -649,10 +660,18 @@ const char* fmi2GetTypesPlatform() {
 ////
 ////	forwardLogMessages(r.logMessages);
 ////	return fmi2Component(r.status);
-////}
-//
-//void fmi2FreeInstance(fmi2Component c) {
-//
+}
+
+
+void fmi2FreeInstance(fmi2Component c) {
+
+    UnmapViewOfFile(pBuf);
+
+    CloseHandle(hMapFile);
+
+    CloseHandle(inputMutex);
+    CloseHandle(outputMutex);
+
 //    msgpack_sbuffer sbuf;
 //    msgpack_sbuffer_init(&sbuf);
 //
@@ -669,8 +688,8 @@ const char* fmi2GetTypesPlatform() {
 //    // Close the pipe handle so the child process stops reading. 
 //    if (!CloseHandle(g_hChildStd_IN_Wr))
 //        ErrorExit(TEXT("StdInWr CloseHandle"));
-//}
-//
+}
+
 ///* Enter and exit initialization mode, terminate and reset */
 //fmi2Status fmi2SetupExperiment(fmi2Component c, fmi2Boolean toleranceDefined, fmi2Real tolerance, fmi2Real startTime, fmi2Boolean stopTimeDefined, fmi2Real stopTime) {
 //

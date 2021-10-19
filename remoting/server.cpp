@@ -5,14 +5,52 @@
 #pragma comment(lib, "user32.lib")
 
 #include <iostream>
+#include <list>
 
 using namespace std;
 
-#define BUF_SIZE 256
+#include "FMI2.h"
+
+typedef enum {
+    rpc_fmi2GetTypesPlatform,
+    rpc_fmi2GetVersion,
+    rpc_fmi2Instantiate,
+    rpc_fmi2SetupExperiment,
+    rpc_fmi2EnterInitializationMode,
+    rpc_fmi2ExitInitializationMode,
+    rpc_fmi2GetReal,
+    rpc_fmi2DoStep,
+    rpc_fmi2Terminate,
+    rpc_fmi2FreeInstance,
+} rpcFunction;
+
+struct LogMessage {
+    std::string instanceName;
+    fmi2Status status;
+    std::string category;
+    std::string message;
+};
+
+
+FMIInstance *m_instance = NULL;
+
+static std::list<LogMessage> s_logMessages;
+
+void logMessage(FMIInstance *instance, FMIStatus status, const char *category, const char *message) {
+    s_logMessages.push_back({ instance->name, (fmi2Status)status, category, message });
+}
+
+
+
+#define BUF_SIZE (1024*8)
 TCHAR szName[] = TEXT("MyFileMappingObject");
 
-int _tmain()
-{
+
+#define ARG(T,IDX) (T)&pBuf[1024 * IDX]
+
+
+int main(int argc, char *argv[]) {
+
     HANDLE inputMutex = INVALID_HANDLE_VALUE;
     HANDLE outputMutex = INVALID_HANDLE_VALUE;
 
@@ -39,7 +77,7 @@ int _tmain()
     }
 
     HANDLE hMapFile;
-    LPCTSTR pBuf;
+    LPTSTR pBuf;
 
     hMapFile = OpenFileMapping(
         FILE_MAP_ALL_ACCESS,   // read/write access
@@ -82,6 +120,22 @@ int _tmain()
     DWORD inputWaitResult = WaitForSingleObject(
         inputMutex, // handle to mutex
         INFINITE);  // no time-out interval
+
+    const char *libraryPath = argv[1]; // "C:\\Users\\tsr2\\Downloads\\BouncingBall\\binaries\\win64\\BouncingBall.dll";
+
+    rpcFunction rpc                 = *((rpcFunction *) &pBuf[1024 * 0]);
+    fmi2String  instanceName        = (fmi2String)      &pBuf[1024 * 1];
+    fmi2Type    fmuType             = *((fmi2Type *)    &pBuf[1024 * 2]);
+    fmi2String  fmuGUID             = (fmi2String)      &pBuf[1024 * 3];
+    fmi2String  fmuResourceLocation = (fmi2String)      &pBuf[1024 * 4];
+    fmi2Boolean visible             = *((fmi2Boolean *) &pBuf[1024 * 5]);
+    fmi2Boolean loggingOn           = *((fmi2Boolean *) &pBuf[1024 * 6]);
+
+    m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, nullptr);
+
+    fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
+
+    memcpy(&pBuf[1024 * 7], &status, sizeof(fmi2Status));
 
     cout << "OK" << endl;
 
