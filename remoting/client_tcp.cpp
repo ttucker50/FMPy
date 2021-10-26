@@ -16,9 +16,12 @@
 #include <thread>
 #include <iostream>
 #include <vector>
+#include <algorithm>
+#include <cctype>
+
 #include "rpc/client.h"
 
-#include "remoting.h"
+#include "remoting_tcp.h"
 #include "fmi2Functions.h"
 
 
@@ -73,6 +76,26 @@ fmi2Status fmi2SetDebugLogging(fmi2Component c, fmi2Boolean loggingOn,	size_t nC
 	NOT_IMPLEMENTED
 }
 
+static string wslpath(const string &path) {
+    // ['wsl', server_path, so_path]
+// C:\Users\tsr2>wsl wslpath "E:\Development\FMPy\remoting\win64\win64\server_tcp.exe"
+// /mnt/e/Development/FMPy/remoting/win64/win64/server_tcp.exe
+
+    size_t colon = path.find_first_of(':', 0);
+
+    string driveLetter = path.substr(0, colon);
+
+    transform(driveLetter.begin(), driveLetter.end(), driveLetter.begin(), [](unsigned char c) { return tolower(c); });
+
+    string p = path.substr(colon + 1, path.length());    
+
+    replace(p.begin(), p.end(), '\\', '/');
+
+    string s = "/mnt/" + driveLetter + p;
+
+    return s;
+}
+
 /* Creation and destruction of FMU instances and setting debug status */
 fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
 	
@@ -107,36 +130,44 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
     const string binariesPath = linux64Path.substr(0, linux64Path.find_last_of('\\'));
 
-    if (!modelIdentifier.compare("client")) {
+    if (!modelIdentifier.compare("client_tcp_")) {
 
         s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Remoting server started externally.");
 	
     } else {
 
-        const string command = binariesPath + "\\win32\\server.exe " + binariesPath + "\\win32\\" + modelIdentifier + ".dll";
 
-		// additional information
-		STARTUPINFO si;
+#ifdef _WIN32
+        // linux64 on Windows via WSL
 
-		// set the size of the structures
-		ZeroMemory(&si, sizeof(si));
-		si.cb = sizeof(si);
-		ZeroMemory(&s_proccessInfo, sizeof(s_proccessInfo));
+        const string serverPath = binariesPath + "\\linux64\\server_tcp";
+
+        const string sharedLibraryPath = binariesPath + "\\linux64\\" + modelIdentifier + ".so";
+
+        const string command = "wsl \"" + wslpath(serverPath) + "\" \"" + wslpath(sharedLibraryPath) + "\"";
+
+        // additional information
+        STARTUPINFO si;
+
+        // set the size of the structures
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+        ZeroMemory(&s_proccessInfo, sizeof(s_proccessInfo));
 
         s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting remoting server. Command: %s", command.c_str());
 
-		// start the program up
-		const BOOL success = CreateProcessA(NULL, // the path
+        // start the program up
+        const BOOL success = CreateProcessA(NULL, // the path
             (LPSTR)command.c_str(),               // command line
-			NULL,                                 // process handle not inheritable
-			NULL,                                 // thread handle not inheritable
-			FALSE,                                // set handle inheritance to FALSE
-            CREATE_NO_WINDOW,                     // creation flags
-			NULL,                                 // use parent's environment block
-			NULL,                                 // use parent's starting directory 
-			&si,                                  // pointer to STARTUPINFO structure
-			&s_proccessInfo                       // pointer to PROCESS_INFORMATION structure
-		);
+            NULL,                                 // process handle not inheritable
+            NULL,                                 // thread handle not inheritable
+            FALSE,                                // set handle inheritance to FALSE
+            0, // CREATE_NO_WINDOW,                     // creation flags
+            NULL,                                 // use parent's environment block
+            NULL,                                 // use parent's starting directory 
+            &si,                                  // pointer to STARTUPINFO structure
+            &s_proccessInfo                       // pointer to PROCESS_INFORMATION structure
+        );
 
         if (success) {
             s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Server process id is %d.", s_proccessInfo.dwProcessId);
@@ -144,7 +175,11 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
             s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to start server.");
             return nullptr;
         }
-	}
+    }
+#else
+    // TODO: win64 on Linux via wine
+#endif
+
 
 #else
 
@@ -184,7 +219,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
                 return nullptr;
             }
 
-            const string command = "wine64 " + binariesPath + "/win64/server.exe " + binariesPath + "/win64/" + modelIdentifier + ".dll";
+            const string command = "wine64 " + binariesPath + "/win64/server_tcp.exe " + binariesPath + "/win64/" + modelIdentifier + ".dll";
 
             s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting server. Command: %s", command.c_str());
 
