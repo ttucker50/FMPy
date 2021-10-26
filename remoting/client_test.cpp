@@ -33,13 +33,20 @@ void logger(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceNa
 #define CALL(f) if ((status = f) != fmi2OK) goto out;
 
 
-int main()
-{
+int main(int argc, char *argv[]) {
+
+    if (argc != 2) {
+        cout << "Usage: client_test <library_path>" << endl;
+        return 1;
+    }
+
+    const char *libraryPath = argv[1];
+   
 	// load the shared library
 # ifdef _WIN32
-	auto l = LoadLibraryA("client.dll");
+	auto l = LoadLibraryA(libraryPath);
 # else
-	auto l = dlopen("/mnt/e/Development/FMPy/remoting/linux64/client.so", RTLD_LAZY);
+	auto l = dlopen(libraryPath, RTLD_LAZY);
 # endif
 
     if (!l) {

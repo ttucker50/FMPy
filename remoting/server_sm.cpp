@@ -65,16 +65,12 @@ static void logFunctionCall(FMIInstance *instance, FMIStatus status, const char 
     }
 }
 
-
-
-#define BUF_SIZE (1024*16)
-TCHAR szName[] = TEXT("MyFileMappingObject");
-
-
-#define ARG(T,IDX) (T)&pBuf[1024 * IDX]
-
-
 int main(int argc, char *argv[]) {
+
+    if (argc != 2) {
+        cout << "Usage: server_sm <library_path>" << endl;
+        return 1;
+    }
 
     cout << "Server started" << endl;
 
@@ -132,146 +128,126 @@ int main(int argc, char *argv[]) {
         DWORD dwEvent = WaitForSingleObject(inputReady, INFINITE);
         //cout << dwEvent << endl;
 
-        rpcFunction rpc = *((rpcFunction *)&pBuf[1024 * 0]);
+        rpcFunction rpc = *((rpcFunction *)ARG(0));
 
         switch (rpc) {
         case rpc_fmi2Instantiate: {
 
             const char *libraryPath = argv[1];
 
-            fmi2String  instanceName = (fmi2String)&pBuf[1024 * 1];
-            fmi2Type    fmuType = *((fmi2Type *)&pBuf[1024 * 2]);
-            fmi2String  fmuGUID = (fmi2String)&pBuf[1024 * 3];
-            fmi2String  fmuResourceLocation = (fmi2String)&pBuf[1024 * 4];
-            fmi2Boolean visible = *((fmi2Boolean *)&pBuf[1024 * 5]);
-            fmi2Boolean loggingOn = *((fmi2Boolean *)&pBuf[1024 * 6]);
+            fmi2String  instanceName = (fmi2String)ARG(1);
+            fmi2Type    fmuType = *((fmi2Type *)ARG(2));
+            fmi2String  fmuGUID = (fmi2String)ARG(3);
+            fmi2String  fmuResourceLocation = (fmi2String)ARG(4);
+            fmi2Boolean visible = *((fmi2Boolean *)ARG(5));
+            fmi2Boolean loggingOn = *((fmi2Boolean *)ARG(6));
 
-            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, NULL /*logFunctionCall*/);
+            m_instance = FMICreateInstance(instanceName, libraryPath, logMessage, logFunctionCall);
 
             fmi2Status status = FMI2Instantiate(m_instance, fmuResourceLocation, fmuType, fmuGUID, visible, loggingOn);
 
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            memcpy(ARG(10), &status, sizeof(fmi2Status));
 
             break;
         }
         case rpc_fmi2Terminate: {
-            fmi2Status status = FMI2Terminate(m_instance);
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2Terminate(m_instance);
             break;
         }
         case rpc_fmi2FreeInstance: {
             FMI2FreeInstance(m_instance);
-            fmi2Status status = fmi2OK;
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = fmi2OK;
             receive = false;
             break;
         }
         case rpc_fmi2SetupExperiment: {
 
-            fmi2Boolean toleranceDefined = *((fmi2Boolean *)&pBuf[1024 * 1]);
-            fmi2Real tolerance           = *((fmi2Real    *)&pBuf[1024 * 2]);
-            fmi2Real startTime           = *((fmi2Real    *)&pBuf[1024 * 3]);
-            fmi2Boolean stopTimeDefined  = *((fmi2Boolean *)&pBuf[1024 * 4]);
-            fmi2Real stopTime            = *((fmi2Real    *)&pBuf[1024 * 5]);
+            fmi2Boolean toleranceDefined = *((fmi2Boolean *)ARG(1));
+            fmi2Real tolerance           = *((fmi2Real    *)ARG(2));
+            fmi2Real startTime           = *((fmi2Real    *)ARG(3));
+            fmi2Boolean stopTimeDefined  = *((fmi2Boolean *)ARG(4));
+            fmi2Real stopTime            = *((fmi2Real    *)ARG(5));
                                    
-            fmi2Status status = FMI2SetupExperiment(m_instance, toleranceDefined, tolerance, startTime, stopTimeDefined, stopTime);
-                     
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
-
+            STATUS = FMI2SetupExperiment(m_instance, toleranceDefined, tolerance, startTime, stopTimeDefined, stopTime);
+            
             break;
         }
         case rpc_fmi2EnterInitializationMode: {
-            fmi2Status status = FMI2EnterInitializationMode(m_instance);
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2EnterInitializationMode(m_instance);
             break;
         }
         case rpc_fmi2ExitInitializationMode: {
-            fmi2Status status = FMI2ExitInitializationMode(m_instance);
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2ExitInitializationMode(m_instance);
             break;
         }
         case rpc_fmi2GetReal: {
 
-            fmi2ValueReference *vr =   (fmi2ValueReference*) &pBuf[1024 * 1];
-            size_t nvr             = *((size_t*)             &pBuf[1024 * 2]);
-            fmi2Real *value        =   (fmi2Real*)           &pBuf[1024 * 3];
+            fmi2ValueReference *vr =   (fmi2ValueReference*) ARG(1);
+            size_t nvr             = *((size_t*)             ARG(2));
+            fmi2Real *value        =   (fmi2Real*)           ARG(3);
 
-            fmi2Status status = FMI2GetReal(m_instance, vr, nvr, value);
-
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2GetReal(m_instance, vr, nvr, value);
 
             break; 
         }
         case rpc_fmi2GetInteger: {
 
-            fmi2ValueReference *vr = (fmi2ValueReference*)&pBuf[1024 * 1];
-            size_t nvr = *((size_t*)&pBuf[1024 * 2]);
-            fmi2Integer *value = (fmi2Integer*)&pBuf[1024 * 3];
+            fmi2ValueReference *vr =   (fmi2ValueReference*)ARG(1);
+            size_t             nvr = *((size_t*)            ARG(2));
+            fmi2Integer     *value =   (fmi2Integer*)       ARG(3);
 
-            fmi2Status status = FMI2GetInteger(m_instance, vr, nvr, value);
-
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2GetInteger(m_instance, vr, nvr, value);
 
             break;
         }
         case rpc_fmi2GetBoolean: {
 
-            fmi2ValueReference *vr = (fmi2ValueReference*)&pBuf[1024 * 1];
-            size_t nvr = *((size_t*)&pBuf[1024 * 2]);
-            fmi2Boolean *value = (fmi2Boolean*)&pBuf[1024 * 3];
+            fmi2ValueReference *vr = (fmi2ValueReference*)ARG(1);
+            size_t             nvr = *((size_t*)ARG(2));
+            fmi2Boolean     *value = (fmi2Boolean*)ARG(3);
 
-            fmi2Status status = FMI2GetBoolean(m_instance, vr, nvr, value);
-
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2GetBoolean(m_instance, vr, nvr, value);
 
             break;
         }
         case rpc_fmi2SetReal: {
 
-            fmi2ValueReference *vr = (fmi2ValueReference*)&pBuf[1024 * 1];
-            size_t nvr = *((size_t*)&pBuf[1024 * 2]);
-            fmi2Real *value = (fmi2Real*)&pBuf[1024 * 3];
+            fmi2ValueReference *vr = (fmi2ValueReference*)ARG(1);
+            size_t nvr = *((size_t*)ARG(2));
+            fmi2Real *value = (fmi2Real*)ARG(3);
 
-            fmi2Status status = FMI2SetReal(m_instance, vr, nvr, value);
-
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2SetReal(m_instance, vr, nvr, value);
 
             break;
         }
         case rpc_fmi2SetInteger: {
 
-            fmi2ValueReference *vr = (fmi2ValueReference*)&pBuf[1024 * 1];
-            size_t nvr = *((size_t*)&pBuf[1024 * 2]);
-            fmi2Integer *value = (fmi2Integer*)&pBuf[1024 * 3];
+            fmi2ValueReference *vr = (fmi2ValueReference*)ARG(1);
+            size_t nvr = *((size_t*)ARG(2));
+            fmi2Integer *value = (fmi2Integer*)ARG(3);
 
-            fmi2Status status = FMI2SetInteger(m_instance, vr, nvr, value);
-
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2SetInteger(m_instance, vr, nvr, value);
 
             break;
         }
         case rpc_fmi2SetBoolean: {
 
-            fmi2ValueReference *vr = (fmi2ValueReference*)&pBuf[1024 * 1];
-            size_t nvr = *((size_t*)&pBuf[1024 * 2]);
-            fmi2Boolean *value = (fmi2Boolean*)&pBuf[1024 * 3];
+            fmi2ValueReference *vr = (fmi2ValueReference*)ARG(1);
+            size_t nvr = *((size_t*)ARG(2));
+            fmi2Boolean *value = (fmi2Boolean*)ARG(3);
 
-            fmi2Status status = FMI2SetBoolean(m_instance, vr, nvr, value);
-
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
+            STATUS = FMI2SetBoolean(m_instance, vr, nvr, value);
 
             break;
         }
         case rpc_fmi2DoStep: {
                                                
-            fmi2Real    currentCommunicationPoint        = *((fmi2Real    *)&pBuf[1024 * 1]);
-            fmi2Real    communicationStepSize            = *((fmi2Real    *)&pBuf[1024 * 2]);
-            fmi2Boolean noSetFMUStatePriorToCurrentPoint = *((fmi2Boolean *)&pBuf[1024 * 3]);
+            fmi2Real    currentCommunicationPoint        = *((fmi2Real    *)ARG(1));
+            fmi2Real    communicationStepSize            = *((fmi2Real    *)ARG(2));
+            fmi2Boolean noSetFMUStatePriorToCurrentPoint = *((fmi2Boolean *)ARG(3));
                                    
-            fmi2Status status = FMI2DoStep(m_instance, currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint);
-                                   
-            memcpy(&pBuf[1024 * 10], &status, sizeof(fmi2Status));
-                                   
+            STATUS = FMI2DoStep(m_instance, currentCommunicationPoint, communicationStepSize, noSetFMUStatePriorToCurrentPoint);
+                                                                      
             break;
         }
         default: {

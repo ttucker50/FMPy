@@ -60,6 +60,15 @@ typedef enum {
 
 } rpcFunction;
 
+#define MAX_ARG_SIZE 65536
+#define BUF_SIZE (MAX_ARG_SIZE * 16)
+
+TCHAR szName[] = TEXT("MyFileMappingObject");
+
+#define ARG(IDX) (&pBuf[MAX_ARG_SIZE * IDX])
+
+#define STATUS *((fmi2Status *)ARG(10))
+
 //#include "rpc/msgpack.hpp"
 //#include <string>
 //#include <vector>
