@@ -13,7 +13,7 @@
 
 #include "rpc/server.h"
 
-#include "remoting.h"
+#include "remoting_tcp.h"
 
 extern "C" {
 #include "FMI2.h"

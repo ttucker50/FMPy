@@ -27,8 +27,10 @@ template<typename T> T *get(void *libraryHandle, const char *functionName) {
 static void functionInThisDll() {}
 
 void logger(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
-    cout << message << endl;
+    cout << "[" << status << "]" << "[" << instanceName << "] " << message << endl;
 }
+
+#define CALL(f) if ((status = f) != fmi2OK) goto out;
 
 
 int main()
@@ -40,12 +42,12 @@ int main()
 	auto l = dlopen("/mnt/e/Development/FMPy/remoting/linux64/client.so", RTLD_LAZY);
 # endif
 
-    cout << l << endl;
-
+    if (!l) {
+        cout << "Failed to load shared library." << endl;
+        return 1;
+    }
 
 	auto getTypesPlatform        = get<fmi2GetVersionTYPE>              (l, "fmi2GetTypesPlatform");
-    
-    
     auto getVersion              = get<fmi2GetVersionTYPE>              (l, "fmi2GetVersion");
 	auto instantiate             = get<fmi2InstantiateTYPE>             (l, "fmi2Instantiate");
 	auto setupExperiment         = get<fmi2SetupExperimentTYPE>         (l, "fmi2SetupExperiment");
@@ -58,47 +60,48 @@ int main()
 
 	auto typesPlatform = getTypesPlatform();
 
-    cout << typesPlatform << endl;
+    cout << "Types Platform: " << typesPlatform << endl;
 
 	auto version = getVersion();
-
-    cout << version << endl;
+    
+    cout << "FMI Version: " << version << endl;
 
     fmi2CallbackFunctions functions = { logger,	nullptr, nullptr, nullptr, nullptr };
 
 	auto c = instantiate("bb", fmi2CoSimulation, "{8c4e810f-3df3-4a00-8276-176fa3c9f003}", "", &functions, fmi2False, fmi2False);
 
-    cout << c << endl;
-
-    //return 0;
+    if (!c) {
+        cout << "Failed to instantiate FMU." << endl;
+        return 1;
+    }
 
 	fmi2Status status = fmi2OK;
 
-	const fmi2Real stopTime = 3;
+	const fmi2Real stopTime = 1;
 	const fmi2Real stepSize = 0.1;
 
-	status = setupExperiment(c, fmi2False, 0, 0, fmi2True, stopTime);
+	CALL(setupExperiment(c, fmi2False, 0, 0, fmi2True, stopTime));
 
-	status = enterInitializationMode(c);
-	status = exitInitializationMode(c);
+    CALL(enterInitializationMode(c));
+    CALL(exitInitializationMode(c));
 
-	fmi2ValueReference vr[2] = { 1, 3 };
+	const fmi2ValueReference vr[2] = { 1, 3 };
 	fmi2Real value[2] = { 0, 0 };
 
 	fmi2Real time = 0;
 
 	while (time <= stopTime) {
-		status = getReal(c, vr, 2, value);
+        CALL(getReal(c, vr, 2, value));
 		cout << time << ", " << value[0] << ", " << value[1] << endl;
-		status = doStep(c, time, stepSize, fmi2True);
+        CALL(doStep(c, time, stepSize, fmi2True));
 		time += stepSize;
 	}
 
-	status = terminate(c);
+	CALL(terminate(c));
 	
 	freeInstance(c);
 
-	cout << "FMI Version: " << version << endl;
+out:
 
 #ifdef _WIN32
 	auto b = FreeLibrary(l);
@@ -106,5 +109,5 @@ int main()
     auto b = dlclose(l);
 #endif
 
-	return 0;
+	return status;
 }

@@ -18,7 +18,7 @@
 #include <vector>
 #include "rpc/client.h"
 
-#include "remoting.h"
+#include "remoting_tcp.h"
 #include "fmi2Functions.h"
 
 
