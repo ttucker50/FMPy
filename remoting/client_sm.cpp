@@ -17,8 +17,8 @@ using namespace std;
 HANDLE inputReady = INVALID_HANDLE_VALUE;
 HANDLE outputReady = INVALID_HANDLE_VALUE;
 
-HANDLE hMapFile;
-LPTSTR pBuf;
+HANDLE hMapFile = INVALID_HANDLE_VALUE;
+LPTSTR pBuf = NULL;
 
 fmi2CallbackLogger s_logger = NULL;
 fmi2ComponentEnvironment s_componentEnvironment = NULL;
@@ -83,9 +83,6 @@ const char* fmi2GetVersion() {
 //        s_logger(s_componentEnvironment, instanceName, (fmi2Status)status, category, message);
 //    }
 //}
-
-#define INPUT_EVENT_NAME  "inputReady"
-#define OUTPUT_EVENT_NAME "outputReady"
 
 /* Creation and destruction of FMU instances and setting debug status */
 fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
@@ -348,7 +345,18 @@ fmi2Status fmi2DeSerializeFMUstate(fmi2Component c, const fmi2Byte serializedSta
 
 /* Getting partial derivatives */
 fmi2Status fmi2GetDirectionalDerivative(fmi2Component c, const fmi2ValueReference vUnknown_ref[], size_t nUnknown, const fmi2ValueReference vKnown_ref[], size_t nKnown, const fmi2Real dvKnown[], fmi2Real dvUnknown[]) {
-	NOT_IMPLEMENTED
+    
+    memcpy(ARG(1), vUnknown_ref, sizeof(fmi2ValueReference) * nUnknown);
+    memcpy(ARG(2), &nUnknown, sizeof(size_t));
+    memcpy(ARG(3), vKnown_ref, sizeof(fmi2ValueReference) * nKnown);
+    memcpy(ARG(4), &nKnown, sizeof(size_t));
+    memcpy(ARG(5), dvKnown, sizeof(fmi2Real) * nKnown);
+
+    fmi2Status status = makeRPC(rpc_fmi2GetDirectionalDerivative);
+
+    memcpy(dvUnknown, ARG(6), sizeof(fmi2Real) * nKnown);
+
+    return status;
 }
 
 /***************************************************
@@ -357,45 +365,93 @@ Types for Functions for FMI2 for Model Exchange
 
 /* Enter and exit the different modes */
 fmi2Status fmi2EnterEventMode(fmi2Component c) {
-    NOT_IMPLEMENTED
+    return makeRPC(rpc_fmi2EnterEventMode);
 }
 
 fmi2Status fmi2NewDiscreteStates(fmi2Component c, fmi2EventInfo* eventInfo) {
-    NOT_IMPLEMENTED
+    
+    fmi2Status status = makeRPC(rpc_fmi2NewDiscreteStates);
+
+    memcpy(eventInfo, ARG(1), sizeof(fmi2EventInfo));
+
+    return status;
 }
 
 fmi2Status fmi2EnterContinuousTimeMode(fmi2Component c) {
-    NOT_IMPLEMENTED
+    return makeRPC(rpc_fmi2EnterContinuousTimeMode);
 }
 
 fmi2Status fmi2CompletedIntegratorStep(fmi2Component c,	fmi2Boolean  noSetFMUStatePriorToCurrentPoint, fmi2Boolean* enterEventMode, fmi2Boolean* terminateSimulation) {
-    NOT_IMPLEMENTED
+    
+    memcpy(ARG(1), &noSetFMUStatePriorToCurrentPoint, sizeof(fmi2Boolean));
+
+    fmi2Status status = makeRPC(rpc_fmi2CompletedIntegratorStep);
+
+    memcpy(enterEventMode,      ARG(2), sizeof(fmi2Boolean));
+    memcpy(terminateSimulation, ARG(3), sizeof(fmi2Boolean));
+
+    return status;
 }
 
 /* Providing independent variables and re-initialization of caching */
 fmi2Status fmi2SetTime(fmi2Component c, fmi2Real time) {
-    NOT_IMPLEMENTED
+
+    memcpy(ARG(1), &time, sizeof(fmi2Real));
+
+    return makeRPC(rpc_fmi2EnterEventMode);
 }
 
 fmi2Status fmi2SetContinuousStates(fmi2Component c, const fmi2Real x[], size_t nx) {
-    NOT_IMPLEMENTED
+
+    memcpy(ARG(1), x, sizeof(fmi2Real) * nx);
+    memcpy(ARG(2), &nx, sizeof(size_t));
+
+    return makeRPC(rpc_fmi2SetContinuousStates);
 }
 
 /* Evaluation of the model equations */
 fmi2Status fmi2GetDerivatives(fmi2Component c, fmi2Real derivatives[], size_t nx) {
-    NOT_IMPLEMENTED
+
+    memcpy(ARG(1), &nx, sizeof(size_t));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetDerivatives);
+
+    memcpy(derivatives, ARG(2), sizeof(fmi2Real) * nx);
+
+    return status;
 }
 
 fmi2Status fmi2GetEventIndicators(fmi2Component c, fmi2Real eventIndicators[], size_t ni) {
-    NOT_IMPLEMENTED
+    
+    memcpy(ARG(1), &ni, sizeof(size_t));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetEventIndicators);
+
+    memcpy(eventIndicators, ARG(2), sizeof(fmi2Real) * ni);
+
+    return status;
 }
 
 fmi2Status fmi2GetContinuousStates(fmi2Component c, fmi2Real x[], size_t nx) {
-    NOT_IMPLEMENTED
+    
+    memcpy(ARG(1), &nx, sizeof(size_t));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetContinuousStates);
+
+    memcpy(x, ARG(2), sizeof(fmi2Real) * nx);
+
+    return status;
 }
 
 fmi2Status fmi2GetNominalsOfContinuousStates(fmi2Component c, fmi2Real x_nominal[], size_t nx) {
-    NOT_IMPLEMENTED
+    
+    memcpy(ARG(1), &nx, sizeof(size_t));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetNominalsOfContinuousStates);
+
+    memcpy(x_nominal, ARG(2), sizeof(fmi2Real) * nx);
+
+    return status;
 }
 
 /***************************************************
@@ -408,7 +464,16 @@ fmi2Status fmi2SetRealInputDerivatives(fmi2Component c, const fmi2ValueReference
 }
 
 fmi2Status fmi2GetRealOutputDerivatives(fmi2Component c, const fmi2ValueReference vr[], size_t nvr, const fmi2Integer order[], fmi2Real value[]) {
-    NOT_IMPLEMENTED
+    
+    memcpy(ARG(1), vr, sizeof(fmi2ValueReference) * nvr);
+    memcpy(ARG(2), &nvr, sizeof(size_t));
+    memcpy(ARG(3), order, sizeof(fmi2Integer) * nvr);
+
+    fmi2Status status = makeRPC(rpc_fmi2GetRealOutputDerivatives);
+
+    memcpy(value, ARG(4), sizeof(fmi2Real) * nvr);
+
+    return status;
 }
 
 fmi2Status fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2Real communicationStepSize, fmi2Boolean noSetFMUStatePriorToCurrentPoint) {
@@ -417,32 +482,65 @@ fmi2Status fmi2DoStep(fmi2Component c, fmi2Real currentCommunicationPoint, fmi2R
     memcpy(ARG(2), &communicationStepSize, sizeof(fmi2Real));
     memcpy(ARG(3), &noSetFMUStatePriorToCurrentPoint, sizeof(fmi2Boolean));
 
-    fmi2Status status = makeRPC(rpc_fmi2DoStep);
-
-    return status;
+    return makeRPC(rpc_fmi2DoStep);
 }
 
 fmi2Status fmi2CancelStep(fmi2Component c) {
-    NOT_IMPLEMENTED
+    return makeRPC(rpc_fmi2CancelStep);
 }
 
 /* Inquire slave status */
 fmi2Status fmi2GetStatus(fmi2Component c, const fmi2StatusKind s, fmi2Status* value) {
-    NOT_IMPLEMENTED
+    
+    memcpy(ARG(1), &s, sizeof(fmi2StatusKind));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetStatus);
+
+    memcpy(value, ARG(2), sizeof(fmi2Status));
+
+    return status;
 }
 
 fmi2Status fmi2GetRealStatus(fmi2Component c, const fmi2StatusKind s, fmi2Real* value) {
-    NOT_IMPLEMENTED
+
+    memcpy(ARG(1), &s, sizeof(fmi2StatusKind));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetRealStatus);
+
+    memcpy(value, ARG(2), sizeof(fmi2Real));
+
+    return status;
 }
 
 fmi2Status fmi2GetIntegerStatus(fmi2Component c, const fmi2StatusKind s, fmi2Integer* value) {
-    NOT_IMPLEMENTED
+
+    memcpy(ARG(1), &s, sizeof(fmi2StatusKind));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetIntegerStatus);
+
+    memcpy(value, ARG(2), sizeof(fmi2Integer));
+
+    return status;
 }
 
 fmi2Status fmi2GetBooleanStatus(fmi2Component c, const fmi2StatusKind s, fmi2Boolean* value) {
-    NOT_IMPLEMENTED
+
+    memcpy(ARG(1), &s, sizeof(fmi2StatusKind));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetBooleanStatus);
+
+    memcpy(value, ARG(2), sizeof(fmi2Boolean));
+
+    return status;
 }
 
 fmi2Status fmi2GetStringStatus(fmi2Component c, const fmi2StatusKind s, fmi2String*  value) {
-	NOT_IMPLEMENTED
+
+    memcpy(ARG(1), &s, sizeof(fmi2StatusKind));
+
+    fmi2Status status = makeRPC(rpc_fmi2GetStringStatus);
+
+    *value = ARG(2);
+
+    return status;
 }
