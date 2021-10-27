@@ -908,6 +908,7 @@ def add_remoting(filename, host_platform, remote_platform):
     import os
 
     platforms = supported_platforms(filename)
+    current_dir = os.path.dirname(__file__)
 
     if host_platform == 'win64' and remote_platform == 'win32':
 
@@ -917,6 +918,9 @@ def add_remoting(filename, host_platform, remote_platform):
         if 'win32' not in platforms:
             raise Exception('The FMU does not support the platform "win32".')
 
+        client = os.path.join(current_dir, 'remoting', 'win64', 'client_sm.dll')
+        server = os.path.join(current_dir, 'remoting', 'win32', 'server_sm.exe')
+
     elif host_platform == 'linux64' and remote_platform == 'win64':
 
         if 'linux64' in platforms:
@@ -924,20 +928,15 @@ def add_remoting(filename, host_platform, remote_platform):
 
         if 'win64' not in platforms:
             raise Exception('The FMU does not support the platform "win64".')
+
+        client = os.path.join(current_dir, 'remoting', 'linux64', 'client_tcp.so')
+        server = os.path.join(current_dir, 'remoting', 'win64', 'server_tcp.exe')
+
     else:
 
         raise Exception("Remoting is not supported for the given combination of host and remote platform.")
 
     model_description = read_model_description(filename)
-
-    current_dir = os.path.dirname(__file__)
-
-    if host_platform == 'win64':
-        client = os.path.join(current_dir, 'remoting', 'win64', 'client.dll')
-        server = os.path.join(current_dir, 'remoting', 'win32', 'server.exe')
-    else:
-        client = os.path.join(current_dir, 'remoting', 'linux64', 'client.so')
-        server = os.path.join(current_dir, 'remoting', 'win64', 'server.exe')
 
     license = os.path.join(current_dir, 'remoting', 'license.txt')
 
@@ -952,11 +951,11 @@ def add_remoting(filename, host_platform, remote_platform):
     if host_platform == 'win64':
         os.mkdir(os.path.join(tempdir, 'binaries', 'win64'))
         copyfile(client, os.path.join(tempdir, 'binaries', 'win64', model_identifier + '.dll'))
-        copyfile(server, os.path.join(tempdir, 'binaries', 'win32', 'server.exe'))
+        copyfile(server, os.path.join(tempdir, 'binaries', 'win32', 'server_sm.exe'))
     else:
         os.mkdir(os.path.join(tempdir, 'binaries', 'linux64'))
         copyfile(client, os.path.join(tempdir, 'binaries', 'linux64', model_identifier + '.so'))
-        copyfile(server, os.path.join(tempdir, 'binaries', 'win64', 'server.exe'))
+        copyfile(server, os.path.join(tempdir, 'binaries', 'win64', 'server_tcp.exe'))
 
     licenses_dir = os.path.join(tempdir, 'documentation', 'licenses')
     os.makedirs(licenses_dir, exist_ok=True)

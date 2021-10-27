@@ -715,10 +715,10 @@ def simulate_fmu(filename,
 
             if remote_platform == 'win32':
 
-                server_path = os.path.join(fmpy_dir, 'remoting', 'win32', 'server.exe')
+                server_path = os.path.join(fmpy_dir, 'remoting', 'win32', 'server_sm.exe')
                 dll_path = os.path.join(unzipdir, 'binaries', 'win32', model_identifier + '.dll')
 
-                library_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'client.dll')
+                library_path = os.path.join(fmpy_dir, 'remoting', 'win64', 'client_sm.dll')
                 server = subprocess.Popen([server_path, dll_path])
 
             elif remote_platform == 'linux64':
