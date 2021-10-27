@@ -90,63 +90,23 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     s_logger = functions->logger;
     s_componentEnvironment = functions->componentEnvironment;
 
-    inputReady = CreateEvent(
-        NULL,              // default security attributes
-        FALSE,             // auto-reset event object
-        FALSE,             // initial state is nonsignaled
-        INPUT_EVENT_NAME); // unnamed object
-
-    outputReady = CreateEvent(
-        NULL,               // default security attributes
-        FALSE,              // auto-reset event object
-        FALSE,              // initial state is nonsignaled
-        OUTPUT_EVENT_NAME); // unnamed object
-
-    hMapFile = CreateFileMapping(
-        INVALID_HANDLE_VALUE,    // use paging file
-        NULL,                    // default security
-        PAGE_READWRITE,          // read/write access
-        0,                       // maximum object size (high-order DWORD)
-        BUF_SIZE,                // maximum object size (low-order DWORD)
-        szName);                 // name of mapping object
-
-    if (hMapFile == NULL) {
-        _tprintf(TEXT("Could not create file mapping object (%d).\n"), GetLastError());
-        return NULL;
-    }
-
-    pBuf = (LPTSTR)MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, BUF_SIZE);
-
-    if (pBuf == NULL) {
-        _tprintf(TEXT("Could not map view of file (%d).\n"), GetLastError());
-        CloseHandle(hMapFile);
-        return NULL;
-    }
-
-    strncpy(ARG(1), instanceName, 1024);
-    memcpy(ARG(2), &fmuType, sizeof(fmi2Type));
-    strncpy(ARG(3), fmuGUID, 1024);
-    strncpy(ARG(4), fmuResourceLocation, 1024);
-    memcpy(ARG(5), &visible, sizeof(fmi2Boolean));
-    memcpy(ARG(6), &loggingOn, sizeof(fmi2Boolean));
-
     char path[MAX_PATH];
 
-	HMODULE hm = NULL;
+    HMODULE hm = NULL;
 
-	if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
-		GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-		(LPCSTR)&fmi2GetTypesPlatform, &hm) == 0) {
-		int ret = GetLastError();
-		//fprintf(stderr, "GetModuleHandle failed, error = %d\n", ret);
-		// Return or however you want to handle an error.
-	}
+    if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        (LPCSTR)&fmi2GetTypesPlatform, &hm) == 0) {
+        int ret = GetLastError();
+        //fprintf(stderr, "GetModuleHandle failed, error = %d\n", ret);
+        // Return or however you want to handle an error.
+    }
 
-	if (GetModuleFileName(hm, path, sizeof(path)) == 0) {
-		int ret = GetLastError();
-		//fprintf(stderr, "GetModuleFileName failed, error = %d\n", ret);
-		// Return or however you want to handle an error.
-	}
+    if (GetModuleFileName(hm, path, sizeof(path)) == 0) {
+        int ret = GetLastError();
+        //fprintf(stderr, "GetModuleFileName failed, error = %d\n", ret);
+        // Return or however you want to handle an error.
+    }
 
     const string filename(path);
 
@@ -159,33 +119,33 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     if (!modelIdentifier.compare("client_sm")) {
 
         s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Remoting server started externally.");
-	
+
     } else {
 
-        const string command = binariesPath + "\\win32\\server.exe " + binariesPath + "\\win32\\" + modelIdentifier + ".dll";
+        const string command = binariesPath + "\\win32\\server_sm.exe " + binariesPath + "\\win32\\" + modelIdentifier + ".dll";
 
-		// additional information
-		STARTUPINFO si;
+        // additional information
+        STARTUPINFO si;
 
-		// set the size of the structures
-		ZeroMemory(&si, sizeof(si));
-		si.cb = sizeof(si);
-		ZeroMemory(&s_proccessInfo, sizeof(s_proccessInfo));
+        // set the size of the structures
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+        ZeroMemory(&s_proccessInfo, sizeof(s_proccessInfo));
 
         s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting remoting server. Command: %s", command.c_str());
 
-		// start the program up
-		const BOOL success = CreateProcessA(NULL, // the path
+        // start the program up
+        const BOOL success = CreateProcessA(NULL, // the path
             (LPSTR)command.c_str(),               // command line
-			NULL,                                 // process handle not inheritable
-			NULL,                                 // thread handle not inheritable
-			FALSE,                                // set handle inheritance to FALSE
+            NULL,                                 // process handle not inheritable
+            NULL,                                 // thread handle not inheritable
+            FALSE,                                // set handle inheritance to FALSE
             CREATE_NO_WINDOW,                     // creation flags
-			NULL,                                 // use parent's environment block
-			NULL,                                 // use parent's starting directory 
-			&si,                                  // pointer to STARTUPINFO structure
-			&s_proccessInfo                       // pointer to PROCESS_INFORMATION structure
-		);
+            NULL,                                 // use parent's environment block
+            NULL,                                 // use parent's starting directory 
+            &si,                                  // pointer to STARTUPINFO structure
+            &s_proccessInfo                       // pointer to PROCESS_INFORMATION structure
+        );
 
         if (success) {
             s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Server process id is %d.", s_proccessInfo.dwProcessId);
@@ -193,7 +153,44 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
             s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to start server.");
             return nullptr;
         }
-	}
+    }
+
+    inputReady = CreateEvent(
+        NULL,              // default security attributes
+        FALSE,             // auto-reset event object
+        FALSE,             // initial state is nonsignaled
+        INPUT_EVENT_NAME); // unnamed object
+
+    outputReady = CreateEvent(
+        NULL,               // default security attributes
+        FALSE,              // auto-reset event object
+        FALSE,              // initial state is nonsignaled
+        OUTPUT_EVENT_NAME); // unnamed object
+
+    hMapFile = OpenFileMapping(
+        FILE_MAP_ALL_ACCESS,   // read/write access
+        FALSE,                 // do not inherit the name
+        szName);               // name of mapping object
+
+    if (hMapFile == NULL) {
+        s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Could not open file mapping object (%d).", GetLastError());
+        return NULL;
+    }
+
+    pBuf = (LPTSTR)MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, BUF_SIZE);
+
+    if (pBuf == NULL) {
+        s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Could not map view of file (%d).", GetLastError());
+        CloseHandle(hMapFile);
+        return NULL;
+    }
+
+    strncpy(ARG(1), instanceName, 1024);
+    memcpy(ARG(2), &fmuType, sizeof(fmi2Type));
+    strncpy(ARG(3), fmuGUID, 1024);
+    strncpy(ARG(4), fmuResourceLocation, 1024);
+    memcpy(ARG(5), &visible, sizeof(fmi2Boolean));
+    memcpy(ARG(6), &loggingOn, sizeof(fmi2Boolean));
 
     fmi2Status status = makeRPC(rpc_fmi2Instantiate);
 

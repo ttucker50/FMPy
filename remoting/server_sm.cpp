@@ -25,9 +25,6 @@ struct LogMessage {
     std::string message;
 };
 
-
-FMIInstance *m_instance = NULL;
-
 static std::list<LogMessage> s_logMessages;
 
 void logMessage(FMIInstance *instance, FMIStatus status, const char *category, const char *message) {
@@ -96,13 +93,17 @@ int main(int argc, char *argv[]) {
     HANDLE hMapFile;
     LPTSTR pBuf;
 
-    hMapFile = OpenFileMapping(
-        FILE_MAP_ALL_ACCESS,   // read/write access
-        FALSE,                 // do not inherit the name
-        szName);               // name of mapping object
+
+    hMapFile = CreateFileMapping(
+        INVALID_HANDLE_VALUE,    // use paging file
+        NULL,                    // default security
+        PAGE_READWRITE,          // read/write access
+        0,                       // maximum object size (high-order DWORD)
+        BUF_SIZE,                // maximum object size (low-order DWORD)
+        szName);                 // name of mapping object
 
     if (hMapFile == NULL) {
-        _tprintf(TEXT("Could not open file mapping object (%d).\n"), GetLastError());
+        _tprintf(TEXT("Could not create file mapping object (%d).\n"), GetLastError());
         return 1;
     }
 
@@ -115,8 +116,9 @@ int main(int argc, char *argv[]) {
     if (pBuf == NULL) {
         _tprintf(TEXT("Could not map view of file (%d).\n"), GetLastError());
         CloseHandle(hMapFile);
-        return 1;
     }
+
+    FMIInstance *m_instance = NULL;
 
     bool receive = true;
 
@@ -139,7 +141,7 @@ int main(int argc, char *argv[]) {
             break;
         
         case rpc_fmi2Instantiate:
-            m_instance = FMICreateInstance(ARG(fmi2String, 1), argv[1], logMessage, logFunctionCall);
+            m_instance = FMICreateInstance(ARG(fmi2String, 1), argv[1], logMessage, NULL /*logFunctionCall*/);
             if (!m_instance) {
                 STATUS = fmi2Error;
                 receive = false;
@@ -318,6 +320,9 @@ int main(int argc, char *argv[]) {
 
     UnmapViewOfFile(pBuf);
     CloseHandle(hMapFile);
+
+    CloseHandle(inputReady);
+    CloseHandle(outputReady);
 
     return 0;
 }
