@@ -4,6 +4,7 @@
 #include <dlfcn.h>
 #endif
 
+#include <stdarg.h>
 #include <iostream>
 
 #include "fmi2Functions.h"
@@ -25,7 +26,17 @@ template<typename T> T *get(void *libraryHandle, const char *functionName) {
 # endif
 
 void logger(fmi2ComponentEnvironment componentEnvironment, fmi2String instanceName, fmi2Status status, fmi2String category, fmi2String message, ...) {
-    cout << "[" << status << "]" << "[" << instanceName << "] " << message << endl;
+    
+    printf("[%d][%s] ", status, instanceName);
+
+    va_list args;
+    va_start(args, message);
+
+    vprintf(message, args);
+
+    va_end(args);
+
+    printf("\n");
 }
 
 #define CALL(f) if ((status = f) != fmi2OK) goto out;
