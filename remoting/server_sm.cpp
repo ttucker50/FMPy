@@ -75,16 +75,13 @@ int main(int argc, char *argv[]) {
 
     cout << "Server started" << endl;
 
-    HANDLE inputReady = INVALID_HANDLE_VALUE;
-    HANDLE outputReady = INVALID_HANDLE_VALUE;
-
-    inputReady = CreateEvent(
+    HANDLE inputReady = CreateEventA(
         NULL,               // default security attributes
         FALSE,              // auto-reset event object
         FALSE,              // initial state is nonsignaled
         INPUT_EVENT_NAME);  // unnamed object
 
-    outputReady = CreateEvent(
+    HANDLE outputReady = CreateEventA(
         NULL,               // default security attributes
         FALSE,              // auto-reset event object
         FALSE,              // initial state is nonsignaled
@@ -93,8 +90,7 @@ int main(int argc, char *argv[]) {
     HANDLE hMapFile;
     LPTSTR pBuf;
 
-
-    hMapFile = CreateFileMapping(
+    hMapFile = CreateFileMappingA(
         INVALID_HANDLE_VALUE,    // use paging file
         NULL,                    // default security
         PAGE_READWRITE,          // read/write access
@@ -103,7 +99,7 @@ int main(int argc, char *argv[]) {
         szName);                 // name of mapping object
 
     if (hMapFile == NULL) {
-        _tprintf(TEXT("Could not create file mapping object (%d).\n"), GetLastError());
+        printf("Could not create file mapping object (%d).\n", GetLastError());
         return 1;
     }
 
@@ -114,8 +110,13 @@ int main(int argc, char *argv[]) {
         BUF_SIZE);
 
     if (pBuf == NULL) {
-        _tprintf(TEXT("Could not map view of file (%d).\n"), GetLastError());
+        printf("Could not map view of file (%d).\n", GetLastError());
         CloseHandle(hMapFile);
+    }
+
+    if (!SetEvent(outputReady)) {
+        printf("SetEvent failed (%d)\n", GetLastError());
+        return 1;
     }
 
     FMIInstance *m_instance = NULL;
@@ -141,7 +142,7 @@ int main(int argc, char *argv[]) {
             break;
         
         case rpc_fmi2Instantiate:
-            m_instance = FMICreateInstance(ARG(fmi2String, 1), argv[1], logMessage, NULL /*logFunctionCall*/);
+            m_instance = FMICreateInstance(ARG(fmi2String, 1), argv[1], logMessage, /*logFunctionCall*/NULL);
             if (!m_instance) {
                 STATUS = fmi2Error;
                 receive = false;
@@ -154,7 +155,7 @@ int main(int argc, char *argv[]) {
             FMI2FreeInstance(m_instance);
             STATUS = fmi2OK;
             receive = false;
-        break;
+            break;
 
         case rpc_fmi2SetupExperiment:
             STATUS = FMI2SetupExperiment(m_instance, *ARG(fmi2Boolean*, 1), *ARG(fmi2Real*, 2), *ARG(fmi2Real*, 3), *ARG(fmi2Boolean*, 4), *ARG(fmi2Real*, 5));

@@ -90,6 +90,18 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     s_logger = functions->logger;
     s_componentEnvironment = functions->componentEnvironment;
 
+    inputReady = CreateEvent(
+        NULL,              // default security attributes
+        FALSE,             // auto-reset event object
+        FALSE,             // initial state is nonsignaled
+        INPUT_EVENT_NAME); // unnamed object
+
+    outputReady = CreateEvent(
+        NULL,               // default security attributes
+        FALSE,              // auto-reset event object
+        FALSE,              // initial state is nonsignaled
+        OUTPUT_EVENT_NAME); // unnamed object
+
     char path[MAX_PATH];
 
     HMODULE hm = NULL;
@@ -140,7 +152,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
             NULL,                                 // process handle not inheritable
             NULL,                                 // thread handle not inheritable
             FALSE,                                // set handle inheritance to FALSE
-            CREATE_NO_WINDOW,                     // creation flags
+            0, // CREATE_NO_WINDOW,                     // creation flags
             NULL,                                 // use parent's environment block
             NULL,                                 // use parent's starting directory 
             &si,                                  // pointer to STARTUPINFO structure
@@ -153,19 +165,9 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
             s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to start server.");
             return nullptr;
         }
+
+        WaitForSingleObject(outputReady, INFINITE);
     }
-
-    inputReady = CreateEvent(
-        NULL,              // default security attributes
-        FALSE,             // auto-reset event object
-        FALSE,             // initial state is nonsignaled
-        INPUT_EVENT_NAME); // unnamed object
-
-    outputReady = CreateEvent(
-        NULL,               // default security attributes
-        FALSE,              // auto-reset event object
-        FALSE,              // initial state is nonsignaled
-        OUTPUT_EVENT_NAME); // unnamed object
 
     hMapFile = OpenFileMapping(
         FILE_MAP_ALL_ACCESS,   // read/write access
@@ -409,44 +411,44 @@ fmi2Status fmi2SetContinuousStates(fmi2Component c, const fmi2Real x[], size_t n
 /* Evaluation of the model equations */
 fmi2Status fmi2GetDerivatives(fmi2Component c, fmi2Real derivatives[], size_t nx) {
 
-    memcpy(ARG(1), &nx, sizeof(size_t));
+    memcpy(ARG(2), &nx, sizeof(size_t));
 
     fmi2Status status = makeRPC(rpc_fmi2GetDerivatives);
 
-    memcpy(derivatives, ARG(2), sizeof(fmi2Real) * nx);
+    memcpy(derivatives, ARG(1), sizeof(fmi2Real) * nx);
 
     return status;
 }
 
 fmi2Status fmi2GetEventIndicators(fmi2Component c, fmi2Real eventIndicators[], size_t ni) {
     
-    memcpy(ARG(1), &ni, sizeof(size_t));
+    memcpy(ARG(2), &ni, sizeof(size_t));
 
     fmi2Status status = makeRPC(rpc_fmi2GetEventIndicators);
 
-    memcpy(eventIndicators, ARG(2), sizeof(fmi2Real) * ni);
+    memcpy(eventIndicators, ARG(1), sizeof(fmi2Real) * ni);
 
     return status;
 }
 
 fmi2Status fmi2GetContinuousStates(fmi2Component c, fmi2Real x[], size_t nx) {
     
-    memcpy(ARG(1), &nx, sizeof(size_t));
+    memcpy(ARG(2), &nx, sizeof(size_t));
 
     fmi2Status status = makeRPC(rpc_fmi2GetContinuousStates);
 
-    memcpy(x, ARG(2), sizeof(fmi2Real) * nx);
+    memcpy(x, ARG(1), sizeof(fmi2Real) * nx);
 
     return status;
 }
 
 fmi2Status fmi2GetNominalsOfContinuousStates(fmi2Component c, fmi2Real x_nominal[], size_t nx) {
     
-    memcpy(ARG(1), &nx, sizeof(size_t));
+    memcpy(ARG(2), &nx, sizeof(size_t));
 
     fmi2Status status = makeRPC(rpc_fmi2GetNominalsOfContinuousStates);
 
-    memcpy(x_nominal, ARG(2), sizeof(fmi2Real) * nx);
+    memcpy(x_nominal, ARG(1), sizeof(fmi2Real) * nx);
 
     return status;
 }
