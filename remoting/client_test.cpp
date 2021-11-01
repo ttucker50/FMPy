@@ -96,15 +96,15 @@ int main(int argc, char *argv[]) {
 	const fmi2Real stopTime = 1;
 	const fmi2Real stepSize = 0.1;
 
+    const fmi2ValueReference vr[2] = { 1, 3 };
+    fmi2Real value[2] = { 0, 0 };
+
+    fmi2Real time = 0;
+
 	CALL(setupExperiment(c, fmi2False, 0, 0, fmi2True, stopTime));
 
     CALL(enterInitializationMode(c));
     CALL(exitInitializationMode(c));
-
-	const fmi2ValueReference vr[2] = { 1, 3 };
-	fmi2Real value[2] = { 0, 0 };
-
-	fmi2Real time = 0;
 
 	while (time <= stopTime) {
         CALL(getReal(c, vr, 2, value));

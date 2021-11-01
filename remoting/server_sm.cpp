@@ -67,14 +67,51 @@ static void logFunctionCall(FMIInstance *instance, FMIStatus status, const char 
     }
 }
 
+HANDLE parentProcessHandle = INVALID_HANDLE_VALUE;
+
+DWORD WINAPI watchParentProcess(LPVOID lpParam) {
+	
+    WaitForSingleObject(parentProcessHandle, INFINITE);
+
+    cout << "Parent process terminated." << endl;
+
+    exit(1);
+}
+
+
 int main(int argc, char *argv[]) {
 
-    if (argc != 2) {
-        cout << "Usage: server_sm <library_path>" << endl;
+    if (argc != 3) {
+        cout << "Usage: server_sm <parent_process_id> <library_path>" << endl;
         return 1;
     }
 
     cout << "Server started" << endl;
+
+    DWORD parentProcessId = atoi(argv[1]);
+
+    if (parentProcessId != 0) {
+            
+        parentProcessHandle = OpenProcess(SYNCHRONIZE, FALSE, parentProcessId);
+
+        cout << "parentProcessId:     " << parentProcessId << endl;
+        cout << "parentProcessHandle: " << parentProcessHandle << endl;
+
+        if (!parentProcessHandle) {
+            cout << "Failed to get parent process handle." << endl;
+            return 1;
+        }
+
+        DWORD dwThreadIdArray;
+
+        HANDLE hThreadArray = CreateThread(
+            NULL,                   // default security attributes
+            0,                      // use default stack size  
+            watchParentProcess,     // thread function name
+            NULL,                   // argument to thread function 
+            0,                      // use default creation flags 
+            &dwThreadIdArray);      // returns the thread identifier
+    }
 
     HANDLE inputReady = CreateEventA(
         NULL,               // default security attributes
@@ -143,7 +180,7 @@ int main(int argc, char *argv[]) {
             break;
         
         case rpc_fmi2Instantiate:
-            m_instance = FMICreateInstance(ARG(fmi2String, 1), argv[1], logMessage, /*logFunctionCall*/NULL);
+            m_instance = FMICreateInstance(ARG(fmi2String, 1), argv[2], logMessage, /*logFunctionCall*/NULL);
             if (!m_instance) {
                 STATUS = fmi2Error;
                 receive = false;

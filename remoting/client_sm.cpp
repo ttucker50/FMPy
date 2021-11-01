@@ -3,6 +3,7 @@
 #include <conio.h>
 #include <tchar.h>
 
+#include <string>
 #include <iostream>
 
 using namespace std;
@@ -134,7 +135,9 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
     } else {
 
-        const string command = binariesPath + "\\win32\\server_sm.exe " + binariesPath + "\\win32\\" + modelIdentifier + ".dll";
+        DWORD currentProcessId = GetCurrentProcessId();
+
+        const string command = binariesPath + "\\win32\\server_sm.exe " + to_string(currentProcessId) + " " + binariesPath + "\\win32\\" + modelIdentifier + ".dll";
 
         // additional information
         STARTUPINFO si;

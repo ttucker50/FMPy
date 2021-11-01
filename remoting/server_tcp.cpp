@@ -6,6 +6,7 @@
 #define MAX_PATH 2048
 #endif
 
+#include <stdarg.h>
 #include <time.h>
 #include <list>
 #include <iostream>
@@ -35,6 +36,40 @@ void logMessage(FMIInstance *instance, FMIStatus status, const char *category, c
 
 static void resetExitTimer() {
 	time(&s_lastActive);
+}
+
+static void logFunctionCall(FMIInstance *instance, FMIStatus status, const char *message, ...) {
+
+    va_list args;
+    va_start(args, message);
+
+    vprintf(message, args);
+
+    va_end(args);
+
+    switch (status) {
+    case FMIOK:
+        printf(" -> OK\n");
+        break;
+    case FMIWarning:
+        printf(" -> Warning\n");
+        break;
+    case FMIDiscard:
+        printf(" -> Discard\n");
+        break;
+    case FMIError:
+        printf(" -> Error\n");
+        break;
+    case FMIFatal:
+        printf(" -> Fatal\n");
+        break;
+    case FMIPending:
+        printf(" -> Pending\n");
+        break;
+    default:
+        printf(" -> Unknown status (%d)\n", status);
+        break;
+    }
 }
 
 #ifdef _WIN32
@@ -133,7 +168,7 @@ public:
 		/* Creation and destruction of FMU instances and setting debug status */
 		srv.bind("fmi2Instantiate", [this](string const& instanceName, int fmuType, string const& fmuGUID, string const& fmuResourceLocation, int visible, int loggingOn) {
 
-            m_instance = FMICreateInstance(instanceName.c_str(), this->libraryPath.c_str(), logMessage, nullptr);
+            m_instance = FMICreateInstance(instanceName.c_str(), this->libraryPath.c_str(), logMessage, logFunctionCall);
 
             if (!m_instance) {
                 return createReturnValue(0);
@@ -412,12 +447,12 @@ int main(int argc, char *argv[]) {
 	    	0,                      // use default creation flags 
 	    	&dwThreadIdArray);      // returns the thread identifier
 #else
-        pthread_t tid;
-        int err = pthread_create(&tid, NULL, &doSomeThing, NULL);
-        if (err != 0)
-            printf("Can't create thread :[%s]", strerror(err));
-        else
-            printf("Thread created successfully\n");
+        //pthread_t tid;
+        //int err = pthread_create(&tid, NULL, &doSomeThing, NULL);
+        //if (err != 0)
+        //    printf("Can't create thread :[%s]", strerror(err));
+        //else
+        //    printf("Thread created successfully\n");
 #endif
 
         cout << "Starting RPC server" << endl;
