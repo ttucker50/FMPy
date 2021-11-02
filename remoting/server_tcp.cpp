@@ -168,7 +168,7 @@ public:
 		/* Creation and destruction of FMU instances and setting debug status */
 		srv.bind("fmi2Instantiate", [this](string const& instanceName, int fmuType, string const& fmuGUID, string const& fmuResourceLocation, int visible, int loggingOn) {
 
-            m_instance = FMICreateInstance(instanceName.c_str(), this->libraryPath.c_str(), logMessage, logFunctionCall);
+            m_instance = FMICreateInstance(instanceName.c_str(), this->libraryPath.c_str(), logMessage, nullptr);
 
             if (!m_instance) {
                 return createReturnValue(0);

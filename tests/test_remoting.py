@@ -52,6 +52,12 @@ class RemotingTest(unittest.TestCase):
 
         simulate_fmu(filename, remote_platform='linux64')
 
+        add_remoting(filename, host_platform='win64', remote_platform='linux64')
+
+        self.assertIn('win64', supported_platforms(filename))
+
+        simulate_fmu(filename, remote_platform=None)
+
     @skipIf(not has_wine64(), "Requires Linux 64-bit and wine 64-bit")
     def test_remoting_win64_on_linux64_cs(self):
 
@@ -63,7 +69,7 @@ class RemotingTest(unittest.TestCase):
 
         simulate_fmu(filename, remote_platform='win64')
 
-        add_remoting(filename, 'linux64', 'win64')
+        add_remoting(filename, host_platform='linux64', remote_platform='win64')
 
         self.assertIn('win64', supported_platforms(filename))
 

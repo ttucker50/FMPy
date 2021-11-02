@@ -219,7 +219,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
                 return nullptr;
             }
 
-            const string command = "wine64 " + binariesPath + "/win64/server.exe " + binariesPath + "/win64/" + modelIdentifier + ".dll";
+            const string command = "wine64 " + binariesPath + "/win64/server_tcp.exe " + binariesPath + "/win64/" + modelIdentifier + ".dll";
 
             s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting server. Command: %s", command.c_str());
 
