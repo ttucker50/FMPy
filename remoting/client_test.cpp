@@ -120,9 +120,9 @@ int main(int argc, char *argv[]) {
 out:
 
 #ifdef _WIN32
-	auto b = FreeLibrary(l);
+	FreeLibrary(l);
 #else
-    auto b = dlclose(l);
+    dlclose(l);
 #endif
 
 	return status;

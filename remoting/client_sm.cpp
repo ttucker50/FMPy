@@ -31,7 +31,7 @@ static 	PROCESS_INFORMATION s_proccessInfo = { 0 };
 
 static fmi2Status makeRPC(rpcFunction rpc) {
 
-    fmi2Status status = fmi2Discard;
+    fmi2Status status = (fmi2Status)-1;
 
     memcpy(ARG(0), &rpc, sizeof(rpcFunction));
     memcpy(ARG(10), &status, sizeof(fmi2Status));
@@ -39,6 +39,11 @@ static fmi2Status makeRPC(rpcFunction rpc) {
     DWORD dwEvent = SignalObjectAndWait(inputReady, outputReady, INFINITE, TRUE);
 
     status = *((fmi2Status*)ARG(10));
+
+    // wait until shared memory has been updated
+    while (status < fmi2OK) {
+        status = *((fmi2Status*)ARG(10));
+    }
 
     return status;
 }
@@ -88,6 +93,10 @@ const char* fmi2GetVersion() {
 /* Creation and destruction of FMU instances and setting debug status */
 fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2String fmuGUID, fmi2String fmuResourceLocation, const fmi2CallbackFunctions* functions, fmi2Boolean visible, fmi2Boolean loggingOn) {
 
+    if (!functions || !functions->logger) {
+        return NULL;
+    }
+
     s_logger = functions->logger;
     s_componentEnvironment = functions->componentEnvironment;
 
@@ -110,24 +119,18 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
         (LPCSTR)&fmi2GetTypesPlatform, &hm) == 0) {
-        int ret = GetLastError();
-        //fprintf(stderr, "GetModuleHandle failed, error = %d\n", ret);
-        // Return or however you want to handle an error.
+        s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "GetModuleHandle failed, error = %d.", GetLastError());
+        return NULL;
     }
 
     if (GetModuleFileName(hm, path, sizeof(path)) == 0) {
-        int ret = GetLastError();
-        //fprintf(stderr, "GetModuleFileName failed, error = %d\n", ret);
-        // Return or however you want to handle an error.
+        s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "GetModuleFileName failed, error = %d.", GetLastError());
+        return NULL;
     }
 
     const string filename(path);
 
-    const string linux64Path = filename.substr(0, filename.find_last_of('\\'));
-
     const string modelIdentifier = filename.substr(filename.find_last_of('\\') + 1, filename.find_last_of('.') - filename.find_last_of('\\') - 1);
-
-    const string binariesPath = linux64Path.substr(0, linux64Path.find_last_of('\\'));
 
     if (!modelIdentifier.compare("client_sm")) {
 
@@ -136,6 +139,10 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     } else {
 
         DWORD currentProcessId = GetCurrentProcessId();
+
+        const string platformPath = filename.substr(0, filename.find_last_of('\\'));
+
+        const string binariesPath = platformPath.substr(0, platformPath.find_last_of('\\'));
 
         const string command = binariesPath + "\\win32\\server_sm.exe " + to_string(currentProcessId) + " " + binariesPath + "\\win32\\" + modelIdentifier + ".dll";
 
