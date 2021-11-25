@@ -137,14 +137,28 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
     } else {
 
 
-#ifdef _WIN32
-        // linux64 on Windows via WSL
+#ifdef _WIN32 // linux64 on Windows via WSL
+       
+        char tempPath[MAX_PATH] = "";
+        char lockFile[MAX_PATH] = "";
+
+        GetTempPathA(MAX_PATH, tempPath);
+
+        GetTempFileNameA(tempPath, "", 0, lockFile);
+
+        // create the lock file
+        HANDLE hLockFile = CreateFile(lockFile, GENERIC_READ | GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+
+        if (hLockFile == INVALID_HANDLE_VALUE) {
+            s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to create lock file %s.\n", lockFile);
+            return NULL;
+        }
 
         const string serverPath = binariesPath + "\\linux64\\server_tcp";
 
         const string sharedLibraryPath = binariesPath + "\\linux64\\" + modelIdentifier + ".so";
 
-        const string command = "wsl \"" + wslpath(serverPath) + "\" \"" + wslpath(sharedLibraryPath) + "\"";
+        const string command = "wsl \"" + wslpath(serverPath) + "\" \"" + wslpath(sharedLibraryPath) + "\" \"" + wslpath(lockFile) + "\"";
 
         // additional information
         STARTUPINFO si;

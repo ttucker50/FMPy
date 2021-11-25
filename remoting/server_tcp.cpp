@@ -3,6 +3,7 @@
 #else
 #include <pthread.h>
 #include <unistd.h>
+#include <fcntl.h>
 #define MAX_PATH 2048
 #endif
 
@@ -72,32 +73,45 @@ static void logFunctionCall(FMIInstance *instance, FMIStatus status, const char 
     }
 }
 
-#ifdef _WIN32
-DWORD WINAPI MyThreadFunction(LPVOID lpParam) {
-#else
-void *doSomeThing(void *arg) {
-#endif
-    
-    while (s_server) {
+static const char *lockFile = NULL;
 
-		time_t currentTime;
-		time(&currentTime);
-
-		if (difftime(currentTime, s_lastActive) > 10) {
-			cout << "Client inactive for more than 10 seconds. Exiting." << endl;
-			s_server->stop();
-			return 0;
-		}
 
 #ifdef _WIN32
+DWORD WINAPI checkLockFile(LPVOID lpParam) {
+
+    HANDLE hLockFile = INVALID_HANDLE_VALUE;
+
+    while (hLockFile == INVALID_HANDLE_VALUE) {
         Sleep(500);
-#else
-        usleep(500000);
-#endif		
-	}
+        hLockFile = CreateFile(lockFile, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_ALWAYS, 0, 0);
+    }
 
-	return 0;
+    cout << "Lock file open. Exiting." << endl;
+    
+    s_server->stop();
+    
+    return 0;
 }
+#else
+void *checkLockFile(void *arg) {
+
+    int dLockFile = -1;
+
+    while (dLockFile < 0) {
+        usleep(500000);
+        cout << "Opening " << lockFile << "..." << endl;
+        dLockFile = open(lockFile, O_WRONLY, S_IRUSR);
+    }
+
+    cout << "Lock file open. Exiting." << endl;
+
+    s_server->stop();
+
+    return NULL;
+}
+#endif		
+
+
 
 class FMU {
 
@@ -422,8 +436,8 @@ public:
 
 int main(int argc, char *argv[]) {
 
-	if (argc != 2) {
-        cerr << "Usage: server <path_to_fmu>" << endl;
+	if (argc < 2) {
+        cerr << "Usage: server <path_to_fmu> [<lockfile>]" << endl;
 		return EXIT_FAILURE;
 	}
 
@@ -431,29 +445,38 @@ int main(int argc, char *argv[]) {
 
         cout << "Loading " << argv[1] << endl;
 
-	    FMU fmu(argv[1]);
+        FMU fmu(argv[1]);
 
-	    s_server = &fmu.srv;
-	    time(&s_lastActive);
+        s_server = &fmu.srv;
+        time(&s_lastActive);
+
+
+        if (argc > 2) {
+
+            lockFile = argv[2];
 
 #ifdef _WIN32
-	    DWORD dwThreadIdArray;
+            DWORD dwThreadIdArray;
 
-	    HANDLE hThreadArray = CreateThread(
-	    	NULL,                   // default security attributes
-	    	0,                      // use default stack size  
-	    	MyThreadFunction,       // thread function name
-	    	NULL,                   // argument to thread function 
-	    	0,                      // use default creation flags 
-	    	&dwThreadIdArray);      // returns the thread identifier
+            HANDLE hThreadArray = CreateThread(
+                NULL,                   // default security attributes
+                0,                      // use default stack size  
+                checkLockFile,          // thread function name
+                NULL,                   // argument to thread function 
+                0,                      // use default creation flags 
+                &dwThreadIdArray);      // returns the thread identifier
 #else
-        //pthread_t tid;
-        //int err = pthread_create(&tid, NULL, &doSomeThing, NULL);
-        //if (err != 0)
-        //    printf("Can't create thread :[%s]", strerror(err));
-        //else
-        //    printf("Thread created successfully\n");
+            pthread_t tid;
+            
+            int err = pthread_create(&tid, NULL, &checkLockFile, NULL);
+            
+            if (err != 0) {
+                printf("Can't create thread :[%s]", strerror(err));
+            } else {
+                printf("Thread created successfully\n");
+            }
 #endif
+        }
 
         cout << "Starting RPC server" << endl;
 
