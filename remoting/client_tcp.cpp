@@ -130,14 +130,13 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
     const string binariesPath = linux64Path.substr(0, linux64Path.find_last_of('\\'));
 
-    if (!modelIdentifier.compare("client_tcp_")) {
+    if (!modelIdentifier.compare("client_tcp")) {
 
         s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Remoting server started externally.");
 	
     } else {
 
-
-#ifdef _WIN32 // linux64 on Windows via WSL
+        // linux64 on Windows via WSL
        
         char tempPath[MAX_PATH] = "";
         char lockFile[MAX_PATH] = "";
@@ -190,12 +189,8 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
             return nullptr;
         }
     }
-#else
-    // TODO: win64 on Linux via wine
-#endif
 
-
-#else
+#else // TODO: win64 on Linux via wine
 
     Dl_info info = { nullptr };
 
@@ -209,17 +204,28 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
 
     const string binariesPath = linux64Path.substr(0, linux64Path.find_last_of('/'));
 
-    if (!modelIdentifier.compare("client")) {
+    if (!modelIdentifier.compare("client_tcp")) {
     
         s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Remoting server started externally.");
     
     } else {
+
+        // create lock file
+        const char *lockFilePath = tempnam(NULL, "");
+
+        FILE *lockFile = fopen(lockFilePath, "w");
+
+        if (!lockFile) {
+            s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to create lock file %s.", lockFilePath);
+            return nullptr;
+        }
 
         const pid_t pid = fork();
 
         if (pid < 0) {
 
             s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to create server process.");
+
             return nullptr;
 
         } else if (pid == 0) {
@@ -233,7 +239,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
                 return nullptr;
             }
 
-            const string command = "wine64 " + binariesPath + "/win64/server_tcp.exe " + binariesPath + "/win64/" + modelIdentifier + ".dll";
+            const string command = "wine64 \"" + binariesPath + "/win64/server_tcp.exe\" \"" + binariesPath + "/win64/" + modelIdentifier + ".dll\" \"" + lockFilePath + "\"";
 
             s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Starting server. Command: %s", command.c_str());
 
@@ -246,6 +252,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
         } else {
 
             s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Server process id is %d.", pid);
+
             s_pid = pid;
 
         }
