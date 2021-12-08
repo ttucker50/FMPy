@@ -83,10 +83,18 @@ DWORD WINAPI checkLockFile(LPVOID lpParam) {
 
     while (hLockFile == INVALID_HANDLE_VALUE) {
         Sleep(500);
-        hLockFile = CreateFile(lockFile, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, 0, CREATE_ALWAYS, 0, 0);
+        hLockFile = CreateFileA(
+            lockFile,       // lpFileName
+            GENERIC_WRITE,  // dwDesiredAccess
+            0,              // dwShareMode
+            0,              // lpSecurityAttributes
+            CREATE_ALWAYS,  // dwCreationDisposition
+            0,              // dwFlagsAndAttributes
+            0               // hTemplateFile
+        );
     }
 
-    cout << "Lock file open. Exiting." << endl;
+    cout << "Lock file " << lockFile << " open. Exiting." << endl;
     
     s_server->stop();
     
@@ -95,12 +103,11 @@ DWORD WINAPI checkLockFile(LPVOID lpParam) {
 #else
 void *checkLockFile(void *arg) {
 
-    int dLockFile = -1;
+    FILE* hLockFile = NULL;
 
-    while (dLockFile < 0) {
+    while (!hLockFile) {
         usleep(500000);
-        cout << "Opening " << lockFile << "..." << endl;
-        dLockFile = open(lockFile, O_WRONLY, S_IRUSR);
+        hLockFile = fopen(lockFile, "w");
     }
 
     cout << "Lock file open. Exiting." << endl;
@@ -437,7 +444,7 @@ public:
 int main(int argc, char *argv[]) {
 
 	if (argc < 2) {
-        cerr << "Usage: server <path_to_fmu> [<lockfile>]" << endl;
+        cerr << "Usage: server <shared_library> [<lockfile>]" << endl;
 		return EXIT_FAILURE;
 	}
 

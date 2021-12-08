@@ -61,16 +61,26 @@ class RemotingTest(unittest.TestCase):
     @skipIf(not has_wine64(), "Requires Linux 64-bit and wine 64-bit")
     def test_remoting_win64_on_linux64_cs(self):
 
+        print("1")
+
         filename = download_file(
             'https://github.com/modelica/fmi-cross-check/raw/master/fmus/2.0/cs/win64/Dymola/2019FD01/DFFREG/DFFREG.fmu',
             checksum='b4baf75e189fc7078b76c3d9f23f6476ec103d93f60168df4e82fa4dc053a93c')
 
+        print("2")
+
         self.assertNotIn('linux64', supported_platforms(filename))
 
-        simulate_fmu(filename, remote_platform='win64')
+        simulate_fmu(filename, remote_platform='win64', fmi_call_logger=print, stop_time=5, output_interval=0.01)
 
-        add_remoting(filename, host_platform='linux64', remote_platform='win64')
+        # print("3")
+        #
+        # add_remoting(filename, host_platform='linux64', remote_platform='win64')
+        #
+        # self.assertIn('win64', supported_platforms(filename))
+        #
+        # simulate_fmu(filename, remote_platform=None, fmi_call_logger=print)
 
-        self.assertIn('win64', supported_platforms(filename))
 
-        simulate_fmu(filename, remote_platform=None)
+if __name__ == '__main__':
+    unittest.main()
