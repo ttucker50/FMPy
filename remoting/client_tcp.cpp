@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 #define MAX_PATH 2048
 #endif
 
@@ -213,13 +214,32 @@ fmi2Component fmi2Instantiate(fmi2String instanceName, fmi2Type fmuType, fmi2Str
         // create lock file
         const char *lockFilePath = tempnam(NULL, "");
 
-        FILE *lockFile = fopen(lockFilePath, "w");
+        int lockFile = open(lockFilePath, O_CREAT | O_EXCL);
 
-        if (!lockFile) {
+        if (lockFile == -1) {
             s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to create lock file %s.", lockFilePath);
             return nullptr;
         } else {
             s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Lock file: %s.", lockFilePath);
+        }
+
+        struct flock fl;
+        memset(&fl, 0, sizeof(fl));
+
+        // lock in shared mode
+        fl.l_type = F_RDLCK;
+
+        // lock entire file
+        fl.l_whence = SEEK_SET;
+        fl.l_start  = 0;
+        fl.l_len    = 0;     
+        fl.l_pid    = 0;
+
+        if (fcntl(lockFile, F_SETLKW, &fl) == -1) {
+            s_logger(s_componentEnvironment, instanceName, fmi2Error, "error", "Failed to lock file %s.", lockFilePath);
+            return nullptr;
+        } else {
+            s_logger(s_componentEnvironment, instanceName, fmi2OK, "info", "Lock file locked.");
         }
 
         const pid_t pid = fork();
