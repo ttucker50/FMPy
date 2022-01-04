@@ -184,9 +184,21 @@ def extract(filename, unzipdir=None, include=None):
         unzipdir = mkdtemp()
 
     # expand the 8.3 paths on windows
-    if sys.platform.startswith('win') and '~' in unzipdir:
-        import win32file
-        unzipdir = win32file.GetLongPathName(unzipdir)
+    if os.name == 'nt' and '~' in unzipdir:
+        from pathlib import Path
+        parts = Path(unzipdir).parts
+        expanded = []
+        for i, part in enumerate(parts):
+            path = Path(*parts[:i+1])
+            if '~' in part and not path.exists():
+                prefix = part.split('~')[0]
+                _, dirs, _ = next(os.walk(path.parent))
+                for dir in dirs:
+                    if dir.startswith(prefix):
+                        part = dir
+                        break
+            expanded.append(part)
+        unzipdir = Path(*expanded)
 
     with zipfile.ZipFile(filename, 'r') as zf:
 
