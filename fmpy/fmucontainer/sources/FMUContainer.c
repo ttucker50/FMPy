@@ -27,14 +27,14 @@
 #include "FMI2.h"
 
 
-#include <cvode/cvode.h>               /* prototypes for CVODE fcts., consts.  */
-#include <nvector/nvector_serial.h>    /* access to serial N_Vector            */
-#include <sunmatrix/sunmatrix_dense.h> /* access to dense SUNMatrix            */
-#include <sunlinsol/sunlinsol_dense.h> /* access to dense SUNLinearSolver      */
-#include <sundials/sundials_types.h>   /* defs. of realtype, sunindextype      */
+#include <cvode/cvode.h>
+#include <nvector/nvector_serial.h>
+#include <sunmatrix/sunmatrix_dense.h>
+#include <sunlinsol/sunlinsol_dense.h>
+#include <sundials/sundials_types.h>
 
 #define EPSILON 1e-14
-#define RTOL  RCONST(1.0e-4)   /* scalar relative tolerance            */
+#define RTOL  RCONST(1.0e-4)
 
 typedef struct {
 
@@ -641,8 +641,12 @@ fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
 	GET_SYSTEM
 
 	for (size_t i = 0; i < s->nComponents; i++) {
-        FMIInstance *m = s->components[i]->instance;
+        Component *c = s->components[i];
+        FMIInstance *m = c->instance;
         CHECK_STATUS(FMI2ExitInitializationMode(m));
+        if (c->interfaceType == FMIModelExchange) {
+            CHECK_STATUS(FMI2EnterContinuousTimeMode(m));
+        }
 	}
 
 END:
