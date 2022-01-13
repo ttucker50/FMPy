@@ -92,6 +92,7 @@ typedef struct {
 	size_t nConnections;
 	Connection *connections;
 
+    fmi2Real nextEventTime;
     size_t nx;
     size_t nz;
     N_Vector x;
@@ -642,11 +643,31 @@ fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
 	
 	GET_SYSTEM
 
+    s->nextEventTime = INFINITY;
+
 	for (size_t i = 0; i < s->nComponents; i++) {
+        
         Component *c = s->components[i];
         FMIInstance *m = c->instance;
+        
         CHECK_STATUS(FMI2ExitInitializationMode(m));
+        
         if (c->interfaceType == FMIModelExchange) {
+
+            fmi2EventInfo eventInfo;
+            
+            do {
+                CHECK_STATUS(FMI2NewDiscreteStates(m, &eventInfo));
+            } while (eventInfo.newDiscreteStatesNeeded && !eventInfo.terminateSimulation);
+
+            if (eventInfo.terminateSimulation) {
+                return fmi2Error;
+            }
+
+            if (eventInfo.nextEventTimeDefined) {
+                s->nextEventTime = min(eventInfo.nextEventTime, s->nextEventTime);
+            }
+            
             CHECK_STATUS(FMI2EnterContinuousTimeMode(m));
         }
 	}
@@ -879,6 +900,7 @@ fmi2Status fmi2DoStep(fmi2Component c,
 	GET_SYSTEM
 
 	for (size_t i = 0; i < s->nConnections; i++) {
+
 		fmi2Real realValue;
 		fmi2Integer integerValue;
 		fmi2Boolean booleanValue;
@@ -963,10 +985,10 @@ fmi2Status fmi2DoStep(fmi2Component c,
         const realtype tNext = currentCommunicationPoint + communicationStepSize;
         const realtype epsilon = (1.0 + fabs(tNext)) * EPSILON;
 
-        const realtype tout = tNext;
-
         while (tret < tNext) {
-            
+
+            const realtype tout = min(tNext, s->nextEventTime);
+
             int flag = CVode(s->cvode_mem, tout, s->x, &tret, CV_NORMAL);
 
             if (flag < 0) {
@@ -1000,9 +1022,7 @@ fmi2Status fmi2DoStep(fmi2Component c,
                 stepEvent &= enterEventMode;
             }
 
-            if (stepEvent || flag == CV_ROOT_RETURN /* || (eventInfo.nextEventTimeDefined && eventInfo.nextEventTime == tret)*/) {
-
-                fmi2EventInfo eventInfo;
+            if (stepEvent || flag == CV_ROOT_RETURN || s->nextEventTime == tret) {
 
                 ix = 0;
 
@@ -1015,9 +1035,19 @@ fmi2Status fmi2DoStep(fmi2Component c,
 
                     // TODO: forward signals
 
+                    fmi2EventInfo eventInfo;
+
                     do {
                         CHECK_STATUS(FMI2NewDiscreteStates(m, &eventInfo));
                     } while (eventInfo.newDiscreteStatesNeeded && !eventInfo.terminateSimulation);
+
+                    if (eventInfo.terminateSimulation) {
+                        return fmi2Error;
+                    }
+
+                    if (eventInfo.nextEventTimeDefined) {
+                        s->nextEventTime = min(eventInfo.nextEventTime, s->nextEventTime);
+                    }
 
                     CHECK_STATUS(FMI2EnterContinuousTimeMode(m));
 

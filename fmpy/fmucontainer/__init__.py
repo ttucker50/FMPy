@@ -273,7 +273,7 @@ def create_fmu_container(configuration, output_filename):
 '''
 
     if iu:
-        xml += '''
+        xml += f'''
     <InitialUnknowns>{ iu }
     </InitialUnknowns>
 '''

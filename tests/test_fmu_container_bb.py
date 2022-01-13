@@ -15,34 +15,44 @@ class FMUContainerBBTest(unittest.TestCase):
         configuration = Configuration(
             parallelDoStep=False,
             variables=[
-                    Variable(
-                        type='Real',
-                        variability='tunable',
-                        causality='parameter',
-                        name='e',
-                        start='0.7',
-                        description='Coefficient',
-                        mapping=[('bouncingBall', 'e')]
-                    ),
-                    Variable(
-                        type='Real',
-                        variability='continuous',
-                        causality='output',
-                        name='h',
-                        description="Height",
-                        mapping=[('bouncingBall', 'h')]
-                    ),
-                ],
+                Variable(
+                    type='Real',
+                    variability='continuous',
+                    causality='output',
+                    initial='calculated',
+                    name='h',
+                    description='Height',
+                    mapping=[('ball', 'h')]
+                ),
+                Variable(
+                    type='Boolean',
+                    variability='discrete',
+                    causality='output',
+                    initial='calculated',
+                    name='reset',
+                    description="Reset",
+                    mapping=[('bounce', 'reset')]
+                ),
+            ],
             components=[
-                    Component(
-                        filename=os.path.join(resources, 'BouncingBall.fmu'),
-                        interfaceType='ModelExchange',
-                        name='bouncingBall'
-                    )
-                ]
+                Component(
+                    filename=os.path.join(resources, 'Bounce.fmu'),
+                    interfaceType='ModelExchange',
+                    name='bounce'
+                ),
+                Component(
+                    filename=os.path.join(resources, 'Ball.fmu'),
+                    interfaceType='ModelExchange',
+                    name='ball'
+                )
+            ],
+            connections=[
+                Connection('ball', 'h', 'bounce', 'h'),
+                Connection('bounce', 'reset', 'ball', 'reset'),
+            ]
         )
 
-        filename = 'BouncingBall_container.fmu'
+        filename = 'BouncingAndBall.fmu'
 
         create_fmu_container(configuration, filename)
 
@@ -53,3 +63,51 @@ class FMUContainerBBTest(unittest.TestCase):
         result = simulate_fmu(filename, stop_time=4, fmi_call_logger=print)
 
         plot_result(result)
+
+    # def test_create_fmu_container(self):
+    #
+    #     resources = os.path.join(os.path.dirname(__file__), 'resources')
+    #
+    #     configuration = Configuration(
+    #         parallelDoStep=False,
+    #         variables=[
+    #                 Variable(
+    #                     type='Real',
+    #                     variability='tunable',
+    #                     causality='parameter',
+    #                     initial='exact',
+    #                     name='e',
+    #                     start='0.7',
+    #                     description='Coefficient',
+    #                     mapping=[('bouncingBall', 'e')]
+    #                 ),
+    #                 Variable(
+    #                     type='Real',
+    #                     variability='continuous',
+    #                     causality='output',
+    #                     initial='calculated',
+    #                     name='h',
+    #                     description="Height",
+    #                     mapping=[('bouncingBall', 'h')]
+    #                 ),
+    #             ],
+    #         components=[
+    #                 Component(
+    #                     filename=os.path.join(resources, 'BouncingBall.fmu'),
+    #                     interfaceType='ModelExchange',
+    #                     name='bouncingBall'
+    #                 )
+    #             ]
+    #     )
+    #
+    #     filename = 'BouncingBall_container.fmu'
+    #
+    #     create_fmu_container(configuration, filename)
+    #
+    #     problems = validate_fmu(filename)
+    #
+    #     self.assertEqual(problems, [])
+    #
+    #     result = simulate_fmu(filename, stop_time=4, fmi_call_logger=print)
+    #
+    #     plot_result(result)
