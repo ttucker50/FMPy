@@ -24,6 +24,7 @@ class Component(object):
 
     filename: str
     name: str
+    interfaceType: str
 
 
 @attrs(eq=False, auto_attribs=True)
@@ -109,11 +110,23 @@ def create_fmu_container(configuration, output_filename):
         extract(component.filename, os.path.join(unzipdir, 'resources', model_identifier))
         variables = dict((v.name, v) for v in model_description.modelVariables)
         component_map[component.name] = (i, variables)
-        data['components'].append({
+
+        c = {
             'name': component.name,
             'guid': model_description.guid,
             'modelIdentifier': model_identifier,
-        })
+        }
+
+        if component.interfaceType == 'ModelExchange':
+            c['interfaceType'] = 0
+            c['nx'] = model_description.numberOfContinuousStates
+            c['nz'] = model_description.numberOfEventIndicators
+        else:
+            c['interfaceType'] = 1
+            c['nx'] = 0
+            c['nz'] = 0
+
+        data['components'].append(c)
 
     variables_map = {}
 

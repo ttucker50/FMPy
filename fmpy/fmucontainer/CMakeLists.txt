@@ -2,6 +2,8 @@ cmake_minimum_required (VERSION 3.2)
 
 project (FMUContainer)
 
+set(CVODE_INSTALL_DIR "../../sundials-5.3.0/static/install" CACHE STRING "CVode installation directory")
+
 if (WIN32)
   set(FMI_PLATFORM win)
 elseif (APPLE)
@@ -43,10 +45,18 @@ SET_TARGET_PROPERTIES(FMUContainer PROPERTIES PREFIX "")
 target_include_directories(FMUContainer PUBLIC
   sources
   ../c-code
+  ${CVODE_INSTALL_DIR}/include
 )
+
+if (WIN32)
+    file(GLOB SUNDIALS_LIBS ${CVODE_INSTALL_DIR}/lib/*.lib)
+else()
+    file(GLOB SUNDIALS_LIBS ${CVODE_INSTALL_DIR}/lib/*.a)
+endif()
 
 target_link_libraries(FMUContainer
   ${CMAKE_DL_LIBS}
+  ${SUNDIALS_LIBS}
 )
 
 add_custom_command(TARGET FMUContainer POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy

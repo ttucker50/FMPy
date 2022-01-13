@@ -13,7 +13,7 @@ class FMUContainerTest(unittest.TestCase):
         resources = os.path.join(os.path.dirname(__file__), 'resources')
 
         configuration = Configuration(
-            parallelDoStep=True,
+            parallelDoStep=False,
             description="A controlled drivetrain",
             variableNamingConvention='structured',
             unitDefinitions=[
@@ -56,10 +56,12 @@ class FMUContainerTest(unittest.TestCase):
             components=[
                     Component(
                         filename=os.path.join(resources, 'Controller.fmu'),
+                        interfaceType='ModelExchange',
                         name='controller'
                     ),
                     Component(
                         filename=os.path.join(resources, 'Drivetrain.fmu'),
+                        interfaceType='ModelExchange',
                         name='drivetrain',
                     )
                 ],
