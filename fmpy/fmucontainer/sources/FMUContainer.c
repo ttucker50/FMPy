@@ -215,7 +215,7 @@ static void ehfun(int error_code, const char *module, const char *function, char
 
     System *system = (System *)user_data;
 
-    system->logger(system->envrionment, system->instanceName, fmi2Error, "logError", "CVode error(code %d) in module %s, function %s: %s.", error_code, module, function, msg);
+    system->logger(system->envrionment, system->instanceName, fmi2Warning, "logWarning", "CVode error(code %d) in module %s, function %s: %s.", error_code, module, function, msg);
 }
 
 
@@ -616,7 +616,7 @@ fmi2Status fmi2SetupExperiment(fmi2Component c,
     flag = CVodeSetNoInactiveRootWarn(s->cvode_mem);
     ASSERT_CV_SUCCESS(flag);
 
-    flag = CVodeSetErrHandlerFn(s->cvode_mem, ehfun, NULL);
+    flag = CVodeSetErrHandlerFn(s->cvode_mem, ehfun, s);
     ASSERT_CV_SUCCESS(flag);
 
     flag = CVodeSetUserData(s->cvode_mem, s);
@@ -987,12 +987,16 @@ fmi2Status fmi2DoStep(fmi2Component c,
 
         while (tret < tNext) {
 
-            const realtype tout = min(tNext, s->nextEventTime);
+            realtype tout = tNext;
+            
+            if (s->nextEventTime > tret && s->nextEventTime < tNext) {
+                tout = s->nextEventTime;
+            }
 
             int flag = CVode(s->cvode_mem, tout, s->x, &tret, CV_NORMAL);
 
             if (flag < 0) {
-                return fmi2Error;
+                printf("flag: %d\n", flag);
             }
 
             size_t ix = 0;
@@ -1025,6 +1029,7 @@ fmi2Status fmi2DoStep(fmi2Component c,
             if (stepEvent || flag == CV_ROOT_RETURN || s->nextEventTime == tret) {
 
                 ix = 0;
+                s->nextEventTime = INFINITY;
 
                 for (size_t i = 0; i < s->nComponents; i++) {
 

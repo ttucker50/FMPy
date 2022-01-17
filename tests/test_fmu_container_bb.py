@@ -33,6 +33,15 @@ class FMUContainerBBTest(unittest.TestCase):
                     description="Reset",
                     mapping=[('bounce', 'reset')]
                 ),
+                Variable(
+                    type='Real',
+                    variability='discrete',
+                    causality='output',
+                    initial='calculated',
+                    name='ticks',
+                    description='Ticks',
+                    mapping=[('ticker', 'ticks')]
+                ),
             ],
             components=[
                 Component(
@@ -44,6 +53,11 @@ class FMUContainerBBTest(unittest.TestCase):
                     filename=os.path.join(resources, 'Ball.fmu'),
                     interfaceType='ModelExchange',
                     name='ball'
+                ),
+                Component(
+                    filename=os.path.join(resources, 'Ticker.fmu'),
+                    interfaceType='ModelExchange',
+                    name='ticker'
                 )
             ],
             connections=[
