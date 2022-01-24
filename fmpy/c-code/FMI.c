@@ -78,21 +78,21 @@ FMIInstance *FMICreateInstance(const char *instanceName, const char *libraryPath
 
 void FMIFreeInstance(FMIInstance *instance) {
 
-    // unload the shared library
-    if (instance->libraryHandle) {
-# ifdef _WIN32
-        FreeLibrary(instance->libraryHandle);
-# else
-        dlclose(instance->libraryHandle);
-# endif
-        instance->libraryHandle = NULL;
-    }
-
-    free(instance->fmi1Functions);
-    free(instance->fmi2Functions);
-    free(instance->fmi3Functions);
-
-    free(instance);
+//    // unload the shared library
+//    if (instance->libraryHandle) {
+//# ifdef _WIN32
+//        FreeLibrary(instance->libraryHandle);
+//# else
+//        dlclose(instance->libraryHandle);
+//# endif
+//        instance->libraryHandle = NULL;
+//    }
+//
+//    free(instance->fmi1Functions);
+//    free(instance->fmi2Functions);
+//    free(instance->fmi3Functions);
+//
+//    free(instance);
 }
 
 const char* FMIValueReferencesToString(FMIInstance *instance, const FMIValueReference vr[], size_t nvr) {

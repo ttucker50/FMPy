@@ -74,7 +74,7 @@ class FMUContainerBBTest(unittest.TestCase):
 
         self.assertEqual(problems, [])
 
-        result = simulate_fmu(filename, stop_time=4, fmi_call_logger=print)
+        result = simulate_fmu(filename, stop_time=3.5, fmi_call_logger=print)
 
         plot_result(result)
 

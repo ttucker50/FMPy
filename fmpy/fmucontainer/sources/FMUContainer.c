@@ -66,6 +66,7 @@ typedef struct {
     FMIInstance *instance;
     size_t nx;
     size_t nz;
+    fmi2Real nextEventTime;
     bool needsUpdate;
 
 #ifdef _WIN32
@@ -99,7 +100,6 @@ typedef struct {
 	size_t nConnections;
 	Connection *connections;
 
-    fmi2Real nextEventTime;
     size_t nx;
     size_t nz;
     N_Vector x;
@@ -663,8 +663,6 @@ fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
 	
 	GET_SYSTEM
 
-    s->nextEventTime = INFINITY;
-
 	for (size_t i = 0; i < s->nComponents; i++) {
         
         Component *c = s->components[i];
@@ -684,9 +682,7 @@ fmi2Status fmi2ExitInitializationMode(fmi2Component c) {
                 return fmi2Error;
             }
 
-            if (eventInfo.nextEventTimeDefined) {
-                s->nextEventTime = min(eventInfo.nextEventTime, s->nextEventTime);
-            }
+            c->nextEventTime = eventInfo.nextEventTimeDefined ? eventInfo.nextEventTime : INFINITY;
             
             CHECK_STATUS(FMI2EnterContinuousTimeMode(m));
         }
@@ -912,52 +908,81 @@ fmi2Status fmi2GetRealOutputDerivatives(fmi2Component c,
     NOT_IMPLEMENTED
 }
 
+static fmi2Status updateConnections(System *s, bool discrete) {
+
+    fmi2Status status = fmi2OK;
+
+    for (size_t i = 0; i < s->nConnections; i++) {
+
+        union Value value;
+        Connection *k = &(s->connections[i]);
+        Component *c1 = s->components[k->startComponent];
+        Component *c2 = s->components[k->endComponent];
+        FMIInstance *m1 = c1->instance;
+        FMIInstance *m2 = c2->instance;
+        fmi2ValueReference vr1 = k->startValueReference;
+        fmi2ValueReference vr2 = k->endValueReference;
+
+        switch (k->type) {
+        case 'R':
+            CHECK_STATUS(FMI2GetReal(m1, &(vr1), 1, &value.real));
+            if (value.real != k->value.real) {
+                CHECK_STATUS(FMI2SetReal(m2, &(vr2), 1, &value.real));
+                c2->needsUpdate = discrete;
+                k->value.real = value.real;
+            }
+            break;
+        case 'I':
+            if (!discrete) break;
+            CHECK_STATUS(FMI2GetInteger(m1, &(vr1), 1, &value.integer));
+            if (value.integer != k->value.integer) {
+                CHECK_STATUS(FMI2SetInteger(m2, &(vr2), 1, &value.integer));
+                c2->needsUpdate = true;
+                k->value.integer = value.integer;
+            }
+            break;
+        case 'B':
+            if (!discrete) break;
+            CHECK_STATUS(FMI2GetBoolean(m1, &(vr1), 1, &value.boolean));
+            if (value.boolean != k->value.boolean) {
+                CHECK_STATUS(FMI2SetBoolean(m2, &(vr2), 1, &value.boolean));
+                c2->needsUpdate = true;
+                k->value.boolean = value.boolean;
+            }
+            break;
+        }
+
+    }
+
+END:
+
+    return status;
+}
+
+static bool anyComponentNeedsUpdate(System *s) {
+    for (size_t i = 0; i < s->nComponents; i++) {
+        if (s->components[i]->needsUpdate) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static fmi2Real getNextEventTime(System *s) {
+    fmi2Real nextEventTime = INFINITY;
+    for (size_t i = 0; i < s->nComponents; i++) {
+        Component *c = s->components[i];
+        nextEventTime = min(nextEventTime, c->nextEventTime);
+    }
+    return nextEventTime;
+}
+
 fmi2Status fmi2DoStep(fmi2Component c,
                       fmi2Real      currentCommunicationPoint,
                       fmi2Real      communicationStepSize,
                       fmi2Boolean   noSetFMUStatePriorToCurrentPoint) {
 
-	GET_SYSTEM
-
-	for (size_t i = 0; i < s->nConnections; i++) {
-
-        union Value value;
-		Connection *k = &(s->connections[i]);
-        Component *c1 = s->components[k->startComponent];
-        Component *c2 = s->components[k->endComponent];
-        FMIInstance *m1 = c1->instance;
-        FMIInstance *m2 = c2->instance;
-		fmi2ValueReference vr1 = k->startValueReference;
-		fmi2ValueReference vr2 = k->endValueReference;
-
-		switch (k->type) {
-		case 'R':
-            CHECK_STATUS(FMI2GetReal(m1, &(vr1), 1, &value.real));
-            CHECK_STATUS(FMI2SetReal(m2, &(vr2), 1, &value.real));
-            if (value.real != k->value.real) {
-                c2->needsUpdate = true;
-            }
-            k->value.real = value.real;
-			break;
-		case 'I':
-            CHECK_STATUS(FMI2GetInteger(m1, &(vr1), 1, &value.integer));
-            CHECK_STATUS(FMI2SetInteger(m2, &(vr2), 1, &value.integer));
-            if (value.integer != k->value.integer) {
-                c2->needsUpdate = true;
-            }
-            k->value.integer = value.integer;
-			break;
-		case 'B':
-            CHECK_STATUS(FMI2GetBoolean(m1, &(vr1), 1, &value.boolean));
-            CHECK_STATUS(FMI2SetBoolean(m2, &(vr2), 1, &value.boolean));
-            if (value.boolean != k->value.boolean) {
-                c2->needsUpdate = true;
-            }
-            k->value.boolean = value.boolean;
-			break;
-		}
-		
-	}
+    GET_SYSTEM;
 
     if (s->parallelDoStep) {
     
@@ -1014,31 +1039,40 @@ fmi2Status fmi2DoStep(fmi2Component c,
 
         // Model Exchange
         const realtype tret = currentCommunicationPoint;
-        const realtype tNext = currentCommunicationPoint + communicationStepSize;
+        realtype tNext = currentCommunicationPoint + communicationStepSize;
         const realtype epsilon = (1.0 + fabs(tNext)) * EPSILON;
+
+        const fmi2Real nextEventTime = getNextEventTime(s);
+
+        if (nextEventTime < tNext) {
+            tNext = nextEventTime;
+        }
 
         while (tret < tNext) {
 
-            for (size_t i = 0; i < s->nComponents; i++) {
-                s->components[i]->needsUpdate = false;
-            }
+            //for (size_t i = 0; i < s->nComponents; i++) {
+            //    s->components[i]->needsUpdate = false;
+            //}
 
             realtype tout = tNext;
             
-            if (s->nextEventTime > tret && s->nextEventTime < tNext) {
-                tout = s->nextEventTime;
-            }
+            //if (s->nextEventTime > tret && s->nextEventTime < tNext) {
+            //    tout = s->nextEventTime;
+            //}
 
             int flag = CVode(s->cvode_mem, tout, s->x, &tret, CV_NORMAL);
 
             if (flag < 0) {
                 printf("flag: %d\n", flag);
+                return fmi2Error;
             }
+
+            // update connections
+            CHECK_STATUS(updateConnections(s, false));
 
             size_t ix = 0;
 
-            bool stepEvent = false;
-
+            // call completed integrator step
             for (size_t i = 0; i < s->nComponents; i++) {
 
                 Component *c = s->components[i];
@@ -1059,9 +1093,12 @@ fmi2Status fmi2DoStep(fmi2Component c,
                     return fmi2Error;
                 }
 
-                stepEvent &= enterEventMode;
+                if (enterEventMode) {
+                    c->needsUpdate = true;
+                }
             }
 
+            // check for state events
             if (s->nz > 0) {
                 CVodeGetRootInfo(s->cvode_mem, s->rootsFound);
                 for (size_t i = 0; i < s->nz; i++) {
@@ -1072,42 +1109,66 @@ fmi2Status fmi2DoStep(fmi2Component c,
                 }
             }
 
-            // TODO: handle time events
+            // check for time events
+            for (size_t i = 0; i < s->nComponents; i++) {
+                Component *c = s->components[i];
+                if (c->nextEventTime == tret) {
+                    c->needsUpdate = true;
+                }
+            }
 
             bool resetSolver = false;
 
+            // event update
+            while (anyComponentNeedsUpdate(s)) {
+
+                // call newDiscreteStates()
+                for (size_t i = 0; i < s->nComponents; i++) {
+
+                    Component *c = s->components[i];
+
+                    if (!c->needsUpdate) {
+                        continue;
+                    }
+
+                    resetSolver = true;
+
+                    FMIInstance *m = c->instance;
+
+                    if (m->state != FMI2EventModeState) {
+                        CHECK_STATUS(FMI2EnterEventMode(m));
+                    }
+
+                    fmi2EventInfo eventInfo;
+
+                    do {
+                        CHECK_STATUS(FMI2NewDiscreteStates(m, &eventInfo));
+                    } while (eventInfo.newDiscreteStatesNeeded && !eventInfo.terminateSimulation);
+
+                    if (eventInfo.terminateSimulation) {
+                        return fmi2Error;
+                    }
+
+                    c->nextEventTime = eventInfo.nextEventTimeDefined ? eventInfo.nextEventTime : INFINITY;
+
+                    c->needsUpdate = false;
+                }
+
+                updateConnections(s, true);
+            }
+
+            ix = 0;
+
+            // return to continuous time mode
             for (size_t i = 0; i < s->nComponents; i++) {
-
                 Component *c = s->components[i];
-
-                if (!c->needsUpdate) {
-                    continue;
-                }
-
-                resetSolver = true;
                 FMIInstance *m = c->instance;
-
-                CHECK_STATUS(FMI2EnterEventMode(m));
-
-                fmi2EventInfo eventInfo;
-
-                do {
-                    CHECK_STATUS(FMI2NewDiscreteStates(m, &eventInfo));
-                } while (eventInfo.newDiscreteStatesNeeded && !eventInfo.terminateSimulation);
-
-                if (eventInfo.terminateSimulation) {
-                    return fmi2Error;
-                }
-
-                if (eventInfo.nextEventTimeDefined) {
-                    s->nextEventTime = min(eventInfo.nextEventTime, s->nextEventTime);
-                }
-
-                CHECK_STATUS(FMI2EnterContinuousTimeMode(m));
-
-                if (s->nx > 0 && eventInfo.valuesOfContinuousStatesChanged) {
-                    CHECK_STATUS(FMI2GetContinuousStates(m, &(NV_DATA_S(s->x)[ix]), c->nx));
-                    ix += c->nx;
+                if (m->state == FMI2EventModeState) {
+                    CHECK_STATUS(FMI2EnterContinuousTimeMode(m));
+                    if (c->nx > 0) {
+                        CHECK_STATUS(FMI2GetContinuousStates(m, &(NV_DATA_S(s->x)[ix]), c->nx));
+                        ix += c->nx;
+                    }
                 }
             }
 
@@ -1115,19 +1176,12 @@ fmi2Status fmi2DoStep(fmi2Component c,
                 CVodeReInit(s->cvode_mem, tret, s->x);
             }
 
-
-
-
             //if (stepEvent || flag == CV_ROOT_RETURN || s->nextEventTime == tret) {
-
             //    ix = 0;
             //    s->nextEventTime = INFINITY;
-
-
             //    flag = CVodeReInit(s->cvode_mem, tret, s->x);
             //    
             //    if (flag < 0) return fmi2Error;
-
             //}
 
         }
