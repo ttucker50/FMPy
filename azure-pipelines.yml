@@ -22,11 +22,6 @@ jobs:
 
   - bash: |
       source activate py37
-      python build_fmucontainer.py
-    displayName: Build FMU Container
-
-  - bash: |
-      source activate py37
       python build_remoting.py
     displayName: Build remoting binaries
 
@@ -83,11 +78,6 @@ jobs:
 
   - bash: |
       source activate py37
-      python build_fmucontainer.py
-    displayName: Build FMU Container
-
-  - bash: |
-      source activate py37
       python setup.py bdist_wheel --universal
       for f in dist/FMPy-*.whl; do
         pip install $f --no-deps -vv
@@ -115,9 +105,9 @@ jobs:
       artifact: 'macosx'
 
 - job: windows
-  displayName: 'Windows Server 2019'
+  displayName: 'Windows Server 2022'
   pool:
-    vmImage: 'windows-2019'
+    vmImage: 'windows-2022'
 
   steps:
 
@@ -131,11 +121,6 @@ jobs:
       call activate py37
       python build_cvode.py
     displayName: Build CVode binaries
-
-  - script: |
-      call activate py37
-      python build_fmucontainer.py
-    displayName: Build FMU Container
 
   - script: |
       call activate py37
