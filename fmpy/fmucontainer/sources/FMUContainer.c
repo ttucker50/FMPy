@@ -386,7 +386,8 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
                     status = FMI2SetReal(m, &vr, 1, &value);
                     break;
                 }
-                case mpack_type_int: {
+                case mpack_type_int:
+                case mpack_type_uint: {
                     fmi2Integer value = mpack_node_int(start);
                     status = FMI2SetInteger(m, &vr, 1, &value);
                     break;
