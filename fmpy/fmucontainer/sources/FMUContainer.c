@@ -371,12 +371,14 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
 
             mpack_node_t component = mpack_node_array_at(components, j);
             mpack_node_t valueReference = mpack_node_array_at(valueReferences, j);
-            fmi2ValueReference vr = mpack_node_u32(valueReference);
 
+            fmi2ValueReference vr = mpack_node_u32(valueReference);
+            size_t ci = mpack_node_u64(component);
+            
             if (hasStartValue) {
 
                 fmi2Status status;
-                FMIInstance *m = s->components[j]->instance;
+                FMIInstance *m = s->components[ci]->instance;
 
                 switch (variableType) {
                 case mpack_type_double: {
@@ -409,7 +411,7 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
                 }
             }
 
-            s->variables[i].ci[j] = mpack_node_u64(component);
+            s->variables[i].ci[j] = ci;
             s->variables[i].vr[j] = vr;
         }
 		
