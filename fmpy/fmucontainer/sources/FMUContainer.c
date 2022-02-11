@@ -23,6 +23,10 @@
 #include <stdarg.h>
 #include <math.h>   /* for fabs() */
 
+#ifndef min
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+
 
 #include "FMI2.h"
 
