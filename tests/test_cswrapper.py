@@ -54,6 +54,22 @@ class CSWrapperTest(unittest.TestCase):
 
         outfilename = filename[:-4] + '_cs.fmu'
 
+        add_cswrapper(filename, outfilename=outfilename)
+
+        simulate_fmu(outfilename, fmi_type='CoSimulation')
+
+    def test_cswrapper2(self):
+
+        filename = 'CoupledClutches.fmu'
+
+        download_test_file('2.0', 'ModelExchange', 'MapleSim', '2016.2', 'CoupledClutches', filename)
+
+        model_description = read_model_description(filename)
+
+        self.assertIsNone(model_description.coSimulation)
+
+        outfilename = filename[:-4] + '_cs2.fmu'
+
         add_cswrapper2(filename, outfilename=outfilename)
 
         simulate_fmu(outfilename, fmi_type='CoSimulation')
