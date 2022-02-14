@@ -1,3 +1,5 @@
+from os import PathLike
+
 from tempfile import mkdtemp
 from typing import List, Tuple
 from attr import attrs, attrib, Factory
@@ -23,7 +25,7 @@ class Variable(object):
 @attrs(eq=False, auto_attribs=True)
 class Component(object):
 
-    filename: str
+    filename: PathLike
     name: str
     interfaceType: str
 
