@@ -22,6 +22,11 @@ jobs:
 
   - bash: |
       source activate py37
+      python build_binaries.py
+    displayName: Build FMPy binaries
+
+  - bash: |
+      source activate py37
       python build_remoting.py
     displayName: Build remoting binaries
 
@@ -78,6 +83,11 @@ jobs:
 
   - bash: |
       source activate py37
+      python build_binaries.py
+    displayName: Build FMPy binaries
+
+  - bash: |
+      source activate py37
       python setup.py bdist_wheel --universal
       for f in dist/FMPy-*.whl; do
         pip install $f --no-deps -vv
@@ -122,6 +132,11 @@ jobs:
       python build_cvode.py
     displayName: Build CVode binaries
 
+  - bash: |
+      source activate py37
+      python build_binaries.py
+    displayName: Build FMPy binaries
+    
   - script: |
       call activate py37
       python build_remoting.py
