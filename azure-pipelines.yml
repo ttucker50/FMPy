@@ -9,6 +9,10 @@ jobs:
   pool:
     vmImage: 'ubuntu-18.04'
   steps:
+
+  - checkout: self
+    submodules: true
+
   - bash: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
 
@@ -65,6 +69,9 @@ jobs:
 
   steps:
 
+  - checkout: self
+    submodules: true
+
   - bash: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
 
@@ -120,6 +127,9 @@ jobs:
     vmImage: 'windows-2022'
 
   steps:
+
+  - checkout: self
+    submodules: true
 
   - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
