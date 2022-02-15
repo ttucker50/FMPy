@@ -58,6 +58,7 @@ add_library(FMUContainer SHARED
   ../thirdparty/mpack/src/mpack/mpack-node.c
   ../thirdparty/mpack/src/mpack/mpack-platform.c
   ../thirdparty/mpack/src/mpack/mpack-reader.c
+  ../thirdparty/mpack/src/mpack/mpack-writer.c
   fmucontainer/FMUContainer.c
 )
 
