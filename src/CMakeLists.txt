@@ -48,20 +48,25 @@ add_library(FMUContainer SHARED
   ../fmpy/c-code/fmi2Functions.h
   ../fmpy/c-code/fmi2FunctionTypes.h
   ../fmpy/c-code/fmi2TypesPlatform.h
-  fmucontainer/FMI.h
-  fmucontainer/FMI2.h
-  fmucontainer/FMI.c
-  fmucontainer/FMI2.c
+  ../thirdparty/Reference-FMUs/include/FMI.h
+  ../thirdparty/Reference-FMUs/include/FMI2.h
+  ../thirdparty/Reference-FMUs/src/FMI.c
+  ../thirdparty/Reference-FMUs/src/FMI2.c
+  ../thirdparty/mpack/src/mpack/mpack.h
+  ../thirdparty/mpack/src/mpack/mpack-common.c
+  ../thirdparty/mpack/src/mpack/mpack-expect.c
+  ../thirdparty/mpack/src/mpack/mpack-node.c
+  ../thirdparty/mpack/src/mpack/mpack-platform.c
+  ../thirdparty/mpack/src/mpack/mpack-reader.c
   fmucontainer/FMUContainer.c
-  fmucontainer/mpack.h
-  fmucontainer/mpack.c
 )
 
 SET_TARGET_PROPERTIES(FMUContainer PROPERTIES PREFIX "")
 
 target_include_directories(FMUContainer PUBLIC
-  fmucontainer
   ../fmpy/c-code
+  ../thirdparty/Reference-FMUs/include
+  ../thirdparty/mpack/src/mpack
   ${CVODE_INSTALL_DIR}/include
 )
 

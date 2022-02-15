@@ -46,10 +46,10 @@ add_executable(server_tcp
     ../fmpy/c-code/fmi2Functions.h
     ../fmpy/c-code/fmi2FunctionTypes.h
     ../fmpy/c-code/fmi2TypesPlatform.h
-    ../src/fmucontainer/FMI.h
-    ../src/fmucontainer/FMI2.h
-    ../src/fmucontainer/FMI.c
-    ../src/fmucontainer/FMI2.c
+    ../thirdparty/Reference-FMUs/include/FMI.h
+    ../thirdparty/Reference-FMUs/include/FMI2.h
+    ../thirdparty/Reference-FMUs/src/FMI.c
+    ../thirdparty/Reference-FMUs/src/FMI2.c
     remoting_tcp.h
     server_tcp.cpp
 )
@@ -57,10 +57,10 @@ add_executable(server_tcp
 set_property(TARGET server_tcp PROPERTY CXX_STANDARD 11)
 
 target_include_directories(server_tcp PUBLIC
-  ..
-  ../fmpy/c-code
-  ../src/fmucontainer
-  "${RPCLIB}/include"
+    ../thirdparty/Reference-FMUs/include
+    ../fmpy/c-code
+    ../src/fmucontainer
+    "${RPCLIB}/include"
 )
 
 if (UNIX)
@@ -140,10 +140,10 @@ if (WIN32)
         ../fmpy/c-code/fmi2Functions.h
         ../fmpy/c-code/fmi2FunctionTypes.h
         ../fmpy/c-code/fmi2TypesPlatform.h
-        ../src/fmucontainer/FMI.h
-        ../src/fmucontainer/FMI2.h
-        ../src/fmucontainer/FMI.c
-        ../src/fmucontainer/FMI2.c
+        ../thirdparty/Reference-FMUs/include/FMI.h
+        ../thirdparty/Reference-FMUs/include/FMI2.h
+        ../thirdparty/Reference-FMUs/src/FMI.c
+        ../thirdparty/Reference-FMUs/src/FMI2.c
         remoting_sm.h
         server_sm.cpp
     )
@@ -151,7 +151,7 @@ if (WIN32)
     set_property(TARGET server_sm PROPERTY CXX_STANDARD 11)
 
     target_include_directories(server_sm PUBLIC
-        ..
+        ../thirdparty/Reference-FMUs/include
         ../fmpy/c-code
         ../src/fmucontainer
     )
