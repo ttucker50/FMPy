@@ -39,6 +39,8 @@ target_include_directories(logging PUBLIC ../fmpy/c-code)
 
 set_target_properties(logging PROPERTIES PREFIX "")
 
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../fmpy/logging/${FMI_PLATFORM}")
+
 add_custom_command(TARGET logging POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy
   "$<TARGET_FILE:logging>"
   "${CMAKE_CURRENT_SOURCE_DIR}/../fmpy/logging/${FMI_PLATFORM}"
