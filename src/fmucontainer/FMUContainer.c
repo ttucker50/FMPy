@@ -176,6 +176,11 @@ static int f(realtype t, N_Vector y, N_Vector ydot, void *user_data) {
     for (size_t i = 0; i < s->nComponents; i++) {
 
         Component *c = s->components[i];
+
+        if (c->interfaceType != FMIModelExchange) {
+            continue;
+        }
+
         FMIInstance *m = c->instance;
         
         status = FMI2SetTime(m, t);
@@ -204,6 +209,11 @@ static int g(realtype t, N_Vector y, realtype *gout, void *user_data) {
     for (size_t i = 0; i < s->nComponents; i++) {
 
         Component *c = s->components[i];
+
+        if (c->interfaceType != FMIModelExchange) {
+            continue;
+        }
+
         FMIInstance *m = c->instance;
 
         status = FMI2SetTime(m, t);
@@ -1084,6 +1094,11 @@ fmi2Status fmi2DoStep(fmi2Component c,
             for (size_t i = 0; i < s->nComponents; i++) {
 
                 Component *c = s->components[i];
+
+                if (c->interfaceType != FMIModelExchange) {
+                    continue;
+                }
+
                 FMIInstance *m = c->instance;
 
                 CHECK_STATUS(FMI2SetTime(m, tret));
