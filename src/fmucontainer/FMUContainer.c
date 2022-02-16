@@ -1030,6 +1030,8 @@ fmi2Status fmi2DoStep(fmi2Component c,
             CHECK_STATUS(status);
         }
 
+        CHECK_STATUS(updateConnections(s, true));
+
     } else {
 
         // Co-Simulation
