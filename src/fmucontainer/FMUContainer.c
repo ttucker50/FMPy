@@ -393,6 +393,8 @@ fmi2Component fmi2Instantiate(fmi2String instanceName,
 
         Component *c = calloc(1, sizeof(Component));
 
+        c->nextEventTime = INFINITY;
+
         mpack_node_t interfaceType = mpack_node_map_cstr(component, "interfaceType");
         
         mpack_node_t nx = mpack_node_map_cstr(component, "nx");
