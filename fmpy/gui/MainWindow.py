@@ -23,6 +23,9 @@ from fmpy.util import can_simulate
 from fmpy.gui.model import VariablesTableModel, VariablesTreeModel, VariablesModel, VariablesFilterModel
 from fmpy.gui.log import Log, LogMessagesFilterProxyModel
 
+from asammdf import MDF, Signal
+import numpy as np
+
 QCoreApplication.setApplicationVersion(fmpy.__version__)
 QCoreApplication.setOrganizationName("CATIA-Systems")
 QCoreApplication.setApplicationName("FMPy")
@@ -97,7 +100,9 @@ class MainWindow(QMainWindow):
         self.simulationThread = None
         # self.progressDialog = None
         self.plotUpdateTimer = QTimer(self)
-        self.plotUpdateTimer.timeout.connect(self.updatePlotData)
+        
+        #self.plotUpdateTimer.timeout.connect(self.updatePlotData)
+        
         self.curves = []
 
         # UI
@@ -332,6 +337,7 @@ class MainWindow(QMainWindow):
         self.log.currentMessageChanged.connect(self.setStatusMessage)
         self.ui.selectInputButton.clicked.connect(self.selectInputFile)
         self.ui.actionShowAboutDialog.triggered.connect(self.showAboutDialog)
+        self.ui.selectOutputButton.clicked.connect(self.SelectOutputLocation)
 
         if os.name == 'nt':
             self.ui.actionCreateDesktopShortcut.triggered.connect(self.createDesktopShortcut)
@@ -586,6 +592,12 @@ class MainWindow(QMainWindow):
                                                   filter="FMUs (*.csv);;All Files (*.*)")
         if filename:
             self.ui.inputFilenameLineEdit.setText(filename)
+            
+    def SelectOutputLocation(self):
+        self.outputFilepath = QFileDialog.getSaveFileName(self,'Save MDF as...', "C:/Users/", "Data Files (*.dat *.mdf)")
+        
+        self.ui.outputLocationLineEdit.setText(str(self.outputFilepath[0]))
+        
 
     def createInputFile(self):
         """ Create an input file based on the input variables in the model description """
@@ -624,6 +636,7 @@ class MainWindow(QMainWindow):
             f.write(','.join(['0'] * (len(input_variables) + 1)) + '\n')
 
         self.ui.inputFilenameLineEdit.setText(filename)
+
 
     def showInputFileInExplorer(self):
         """ Reveal the input file in the file browser """
@@ -765,12 +778,26 @@ class MainWindow(QMainWindow):
         else:
             self.ui.actionSaveResult.setEnabled(True)
             self.ui.actionSavePlottedResult.setEnabled(True)
-
+        
         self.result = self.simulationThread.result
-
+        
         self.simulationThread = None
 
         self.updatePlotData()
+        
+        if self.ui.outputCheckBox.isChecked():
+            
+            timestamps = self.result['time']
+            signals = []
+            
+            for signal in self.selectedVariables:                                
+                name = signal.name
+                MDFsignal = Signal(samples=self.result[name], timestamps=timestamps, name=name)
+                signals.append(MDFsignal)
+                
+        with MDF() as mdf:
+            mdf.append(signals)
+            mdf.save(str(self.outputFilepath[0]), overwrite=True)
 
     def updatePlotData(self):
 
@@ -818,24 +845,24 @@ class MainWindow(QMainWindow):
             plot = self.ui.plotWidget.addPlot()
 
             if variable.type == 'Real':
-                curve = plot.plot(pen=pen)
+                curve = plot.plot(pen=pen, stepMode='left')
             else:
                 if variable.type == 'Boolean':
                     plot.setYRange(0, 1, padding=0.2)
                     plot.getAxis('left').setTicks([[(0, 'false'), (1, 'true')], []])
                     curve = plot.plot(pen=pen, fillLevel=0, fillBrush=(0, 0, 255, 50), antialias=False)
                 else:
-                    curve = plot.plot(pen=pen, antialias=False)
+                    curve = plot.plot(pen=pen, stepMode='left', antialias=False)
 
             plot.setXRange(0, stop_time, padding=0.05)
 
             plot.setLabel('left', variable.name)
             plot.showGrid(x=True, y=True, alpha=0.25)
 
-            # hide the auto-scale button and disable context menu and mouse interaction
+            """# hide the auto-scale button and disable context menu and mouse interaction
             plot.hideButtons()
             plot.setMouseEnabled(False, False)
-            plot.setMenuEnabled(False)
+            plot.setMenuEnabled(False)"""
 
             self.curves.append((variable, curve))
 

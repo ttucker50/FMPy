@@ -24,5 +24,5 @@ if __name__ == '__main__':
             window = MainWindow()
             window.show()
         window.load(v)
-
+    app.setQuitOnLastWindowClosed(True)
     sys.exit(app.exec_())
